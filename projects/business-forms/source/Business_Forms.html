@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Example Business — Business Forms</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --black:#0e0e0e; --gold:#f2c114; --gold-soft:#faedbe;
+  --ink:#182236; --ink-soft:#4a5568; --paper:#ffffff; --desk:#eceef2; --line:#d7dbe3;
+  --mono:"Consolas","Menlo",monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--desk);color:var(--ink);min-height:100vh}
+header.appbar{background:var(--black);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--gold)}
+header.appbar h1{font-size:16px;font-weight:700;letter-spacing:.4px}
+header.appbar h1 b{color:var(--gold)}
+header.appbar .clock{font-family:var(--mono);font-size:13px;opacity:.85;margin-left:auto}
+nav.tabs{display:flex;gap:4px;background:#1c1c1c;padding:6px 14px;flex-wrap:wrap}
+nav.tabs button{border:0;background:transparent;color:#cfcfcf;padding:8px 14px;border-radius:6px 6px 0 0;cursor:pointer;font-size:13.5px;font-weight:600}
+nav.tabs button.active{background:var(--gold);color:#111}
+main{display:grid;grid-template-columns:minmax(320px,430px) 1fr;gap:18px;padding:18px;max-width:1440px;margin:0 auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-soft);margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.grp{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111;background:var(--gold-soft);border-left:4px solid var(--gold);padding:5px 8px;margin:16px 0 8px;border-radius:3px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:3px}
+.field input,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:var(--sans);background:#fbfcfe}
+.field textarea{resize:vertical;min-height:56px}
+.field input:focus,.field textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.items-head{display:grid;gap:8px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;margin:6px 0 4px}
+.item-row{display:grid;gap:8px;margin-bottom:6px;align-items:center}
+.item-row input{padding:7px 8px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;width:100%}
+.item-row .del{background:#fdeaea;border:1px solid #f3c2c2;color:#a33;border-radius:6px;cursor:pointer;height:32px;width:32px;font-size:15px;flex:none}
+.btn{border:0;border-radius:7px;padding:9px 14px;font-size:13.5px;font-weight:600;cursor:pointer}
+.btn.add{background:var(--gold-soft);color:#6b5200;border:1px dashed var(--gold);width:100%;margin-top:2px}
+.exportbar{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.opt{display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:6px 0;cursor:pointer;line-height:1.45}
+.opt input{margin-top:3px;accent-color:#c99a00}
+.opt b{font-weight:700}
+.btn.pdf{background:#b3261e;color:#fff}.btn.word{background:#1f5fa8;color:#fff}.btn.excel{background:#0e7c5b;color:#fff}
+.btn.folder{background:#fff;border:1.5px solid var(--black);color:var(--black)}
+.folderline{font-size:12px;color:var(--ink-soft);margin-top:8px;font-family:var(--mono)}
+.folderline b{color:#6b5200}
+.filepreview{font-size:12px;color:var(--ink-soft);margin-top:6px}
+.filepreview code{font-family:var(--mono);background:var(--gold-soft);padding:2px 6px;border-radius:4px;color:#4c3a00}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--black);color:#fff;padding:10px 18px;border-radius:8px;font-size:13.5px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99;border:1px solid var(--gold)}
+#toast.show{opacity:1}
+.preview-wrap{overflow:auto}
+
+/* ============ paper sheet (matches the original forms) ============ */
+.sheet{background:#fff;width:100%;max-width:780px;margin:0 auto;min-height:1000px;box-shadow:0 3px 18px rgba(20,30,60,.16);font-size:13.5px;line-height:1.5;color:#111;position:relative;display:flex;flex-direction:column}
+.sheet .body{padding:20px 34px 30px;flex:1;display:flex;flex-direction:column}
+
+/* branded black header */
+.bband{background:var(--black);color:#fff;padding:18px 30px 14px;display:flex;justify-content:space-between;gap:20px}
+.bband::after{content:""}
+.bband .left{max-width:52%}
+.bband .left img{width:230px;display:block;margin-bottom:8px}
+.bband .contact{font-size:12px;line-height:1.9}
+.bband .contact .ic{color:var(--gold);display:inline-block;width:18px}
+.bband .right{text-align:left;min-width:290px;padding-top:6px}
+.bband .btitle{color:var(--gold);font-size:34px;font-weight:900;letter-spacing:1px;text-align:right;margin-bottom:14px;font-family:Arial,Helvetica,sans-serif}
+.bband .meta{font-size:13px;margin:9px 0;display:flex;gap:8px;align-items:baseline}
+.bband .meta b{font-weight:600;white-space:nowrap}
+.bband .meta span{border-bottom:1.5px solid #fff;flex:1;min-height:18px;padding:0 4px}
+.bband .meta.boxed span{background:#fff;color:#111;border:1px solid #999;border-radius:2px;padding:2px 6px;min-height:22px}
+.gold-rule{height:5px;background:var(--gold)}
+
+/* two-column address blocks */
+.cols2{display:flex;gap:36px;margin-top:16px}
+.cols2>div{flex:1}
+.h-plain{font-size:13px;font-weight:800;letter-spacing:.3px;margin-bottom:8px}
+.fline{display:flex;gap:8px;margin:7px 0;font-size:13px}
+.fline b{font-weight:400;color:#222;white-space:nowrap;min-width:64px}
+.fline span{border-bottom:1px solid #777;flex:1;min-height:18px;padding:0 3px}
+
+/* black-bar section headers */
+.blackbar{background:var(--black);color:var(--gold);font-weight:800;font-size:12.5px;letter-spacing:.8px;text-transform:uppercase;padding:6px 10px;margin-top:18px}
+.boxarea{border:1.5px solid #111;min-height:64px;padding:8px 10px;font-size:13px;white-space:pre-wrap}
+.boxarea.tall{min-height:300px}
+
+/* work/service table */
+table.work{width:100%;border-collapse:collapse;margin-top:16px}
+table.work th{background:var(--black);color:var(--gold);font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;padding:7px 8px;border:1px solid #111}
+table.work td{border:1px solid #444;padding:6px 8px;font-size:13px;height:30px}
+table.work td.num{text-align:right;font-family:var(--mono);font-size:12.5px}
+table.work th.num{text-align:right}
+
+/* totals block (quotation style) */
+.totblock{width:300px;margin-left:auto;margin-top:16px;font-size:13px}
+.totblock .trow{display:flex;border:1px solid #444;border-top:0}
+.totblock .trow:first-child{border-top:1px solid #444}
+.totblock .trow div{padding:6px 9px}
+.totblock .trow .lab{flex:1.4;font-weight:700}
+.totblock .trow .val{flex:1;text-align:right;font-family:var(--mono);border-left:1px solid #444}
+.totblock .trow.tint{background:var(--gold-soft)}
+.totblock .trow.gold{background:var(--gold);font-weight:800}
+
+/* invoice totals (boxed, right side) */
+.invtot{width:330px;margin-left:auto;margin-top:20px;border:1px solid #444;font-size:13.5px}
+.invtot .trow{display:flex;border-bottom:1px solid #444}
+.invtot .trow:last-child{border-bottom:0;font-weight:800}
+.invtot .trow .lab{flex:1;padding:9px 10px;font-weight:700}
+.invtot .trow .val{flex:1;padding:9px 10px;text-align:right;font-family:var(--mono);border-left:1px solid #444}
+
+.payline{display:flex;gap:26px;margin-top:14px;font-size:12.5px;flex-wrap:wrap}
+.payline div{display:flex;gap:6px;align-items:baseline;flex:1;min-width:150px}
+.payline span{border-bottom:1px solid #555;flex:1;min-height:16px;padding:0 3px}
+.hr-heavy{border-top:2px solid #111;margin-top:22px}
+
+.notes{font-size:12px;margin-top:8px}
+.notes li{margin:3px 0 3px 16px}
+.authline{width:200px;margin-left:auto;margin-top:40px;border-top:1.5px solid #111;text-align:center;font-style:italic;font-size:12px;padding-top:3px}
+.script-foot{text-align:center;font-family:"Segoe Script","Brush Script MT",cursive;font-size:19px;margin-top:auto;padding-top:24px}
+.bfoot{height:14px;background:var(--black);border-top:4px solid var(--gold);margin-top:16px}
+.thanks-black{text-align:center;font-weight:800;letter-spacing:.5px;margin-top:18px;font-size:14px}
+
+/* plain forms (receipt / payment plan) */
+.plain-title{font-size:24px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;border-bottom:3px solid #111;padding-bottom:6px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:baseline}
+.plain-title small{font-size:12px;font-weight:600;letter-spacing:.5px}
+.psec{font-size:13px;font-weight:800;margin:16px 0 4px;border-bottom:1px solid #999;padding-bottom:2px}
+.kv{display:flex;gap:8px;margin:6px 0;font-size:13.5px}
+.kv b{min-width:160px;font-weight:700}
+.kv span{border-bottom:1px dotted #777;flex:1;min-height:19px;padding:0 3px}
+.kv span.num{font-family:var(--mono);text-align:right}
+table.plain{width:100%;border-collapse:collapse;margin:8px 0}
+table.plain th{background:#f0f2f6;border:1px solid #999;padding:6px 8px;font-size:12px;text-transform:uppercase;text-align:left}
+table.plain td{border:1px solid #999;padding:6px 8px;font-size:13px;height:28px}
+table.plain td.num{text-align:right;font-family:var(--mono)}
+.sig2{display:flex;gap:40px;margin-top:46px}
+.sig2 div{flex:1;border-top:1.5px solid #222;padding-top:5px;font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <h1>SUPERIOR <b>EXTERIOR</b> — Business Forms</h1>
+  <span style="font-size:12px;opacity:.7">Cleaning &amp; Maintenance LTD</span>
+  <span class="clock" id="clock"></span>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+
+<main>
+  <section class="panel">
+    <h2 id="form-title">Details</h2>
+    <div id="form-fields"></div>
+    <div class="exportbar" style="display:block">
+      <div class="grp" style="margin-top:0">Where should files be saved?</div>
+      <label class="opt"><input type="radio" name="savemode" value="ask" checked onchange="setSaveMode('ask')">
+        <span><b>Ask me every time</b> — a Save As window opens so I can pick the exact folder and file name</span></label>
+      <label class="opt"><input type="radio" name="savemode" value="folder" onchange="setSaveMode('folder')">
+        <span><b>Always use my chosen folder</b> — save there instantly, no questions</span></label>
+      <div id="folderopts" style="display:none;margin:6px 0 6px 26px">
+        <button class="btn folder" onclick="chooseFolder()">📁 Choose folder…</button>
+        <span class="folderline" id="folderline" style="margin-left:8px">No folder chosen yet</span>
+        <label class="opt" style="margin-top:8px"><input type="checkbox" id="subfolders" checked>
+          <span>Organise into subfolders by form type (Invoices, Receipts, Quotations…)</span></label>
+      </div>
+      <label class="opt"><input type="radio" name="savemode" value="download" onchange="setSaveMode('download')">
+        <span><b>Downloads folder</b> — standard browser download</span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn pdf" onclick="exportPDF()">Save as PDF</button>
+        <button class="btn word" onclick="exportWord()">Save as Word</button>
+        <button class="btn excel" onclick="exportExcel()">Save as Excel</button>
+      </div>
+    </div>
+    <div class="filepreview">File name: <code id="fname-preview"></code></div>
+  </section>
+
+  <section class="panel preview-wrap">
+    <h2>Live preview</h2>
+    <div class="sheet" id="sheet"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= brand ================= */
+const LOGO = "";
+const BRAND = {
+  phone: "Configure a business phone",
+  emailCML: "billing@example.invalid",
+  emailMLTD: "accounts@example.invalid",
+  address: "Configure a business address"
+};
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money = n => (isFinite(n) ? Number(n) : 0).toFixed(2);
+const todayISO = () => { const d=new Date(),p=x=>String(x).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+const fmtDate = iso => { if(!iso) return ""; const [y,m,d]=String(iso).split("-"); return d&&m&&y ? `${d}/${m}/${y}` : iso; };
+const sanitize = s => (String(s||"").trim().replace(/[^\w\- ]+/g,"").replace(/\s+/g,"_")) || "form";
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2600); }
+setInterval(()=>{ const d=new Date(); $("clock").textContent = d.toLocaleDateString()+"  "+d.toLocaleTimeString(); },1000);
+
+/* branded header builder */
+function brandHeader(title, metaRows, email, boxed){
+  return `
+  <div class="bband">
+    <div class="left">
+      <img src="${LOGO}" alt="Example Business logo">
+      <div class="contact">
+        <div><span class="ic">&#9742;</span> Telephone: ${esc(BRAND.phone)}</div>
+        <div><span class="ic">&#9993;</span> Email: ${esc(email)}</div>
+        <div><span class="ic">&#9873;</span> ${esc(BRAND.address)}</div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="btitle">${title}</div>
+      ${metaRows.map(r=>`<div class="meta ${boxed?"boxed":""}"><b>${r[0]}</b><span>${esc(r[1])}</span></div>`).join("")}
+    </div>
+  </div>
+  <div class="gold-rule"></div>`;
+}
+const fline = (label,val)=>`<div class="fline"><b>${label}:</b><span>${esc(val)}</span></div>`;
+
+/* ================= form definitions ================= */
+const FORMS = {
+
+  /* ---------- QUOTATION (branded, matches original) ---------- */
+  quotation: {
+    label:"Quotation", nameField:"qName",
+    fields:[
+      {g:"Quotation details"},
+      {k:"quoteNo",l:"Quotation No.",t:"text",half:"date"},
+      {k:"date",l:"Date",t:"date",auto:"date"},
+      {k:"validUntil",l:"Valid until",t:"date"},
+      {g:"Quote to"},
+      {k:"qName",l:"Name",t:"text"},
+      {k:"qCompany",l:"Company",t:"text"},
+      {k:"qAddress",l:"Address",t:"textarea"},
+      {k:"qPhone",l:"Phone",t:"text",half:"qEmail"},
+      {k:"qEmail",l:"Email",t:"text"},
+      {g:"Site address (if different)"},
+      {k:"sName",l:"Name",t:"text"},
+      {k:"sAddress",l:"Address",t:"textarea"},
+      {k:"sPhone",l:"Phone",t:"text"},
+      {g:"Totals & notes"},
+      {k:"taxPct",l:"Tax %",t:"number",def:"0",half:"payTerms"},
+      {k:"payTerms",l:"Payment terms",t:"text"},
+      {k:"addInfo",l:"Additional information",t:"textarea"},
+    ],
+    items:{cols:[{k:"desc",l:"Description of work / service",t:"text",w:"2.6fr"},{k:"qty",l:"Qty",t:"number",w:".6fr"},{k:"unit",l:"Unit",t:"text",w:".7fr"},{k:"price",l:"Unit price",t:"number",w:".9fr"}],
+      total:r=>(+r.qty||0)*(+r.price||0)},
+    compute(d){
+      const sub=d.items.reduce((s,r)=>s+((+r.qty||0)*(+r.price||0)),0);
+      const tax=sub*((+d.taxPct||0)/100);
+      d.subtotal=money(sub); d.taxAmt=money(tax); d.totalIncl=money(sub+tax);
+    },
+    preview(d){
+      const rows = d.items.map(r=>`<tr><td>${esc(r.desc)}</td><td class="num">${esc(r.qty)||""}</td><td>${esc(r.unit)}</td><td class="num">${r.price!==""?money(r.price):""}</td><td class="num">${(r.qty!==""||r.price!=="")?money((+r.qty||0)*(+r.price||0)):""}</td></tr>`).join("");
+      const blanks = Math.max(0, 8-d.items.length);
+      const blankRows = Array(blanks).fill(`<tr><td></td><td></td><td></td><td></td><td></td></tr>`).join("");
+      return brandHeader("QUOTATION",[["Quotation No.:",d.quoteNo],["Date:",fmtDate(d.date)],["Valid Until:",fmtDate(d.validUntil)]],BRAND.emailCML,false)+`
+      <div class="body">
+        <div class="cols2">
+          <div><div class="h-plain">QUOTE TO:</div>
+            ${fline("Name",d.qName)}${fline("Company",d.qCompany)}${fline("Address",d.qAddress)}${fline("Phone",d.qPhone)}${fline("Email",d.qEmail)}
+          </div>
+          <div><div class="h-plain">SITE ADDRESS (IF DIFFERENT):</div>
+            ${fline("Name",d.sName)}${fline("Address",d.sAddress)}${fline("Phone",d.sPhone)}
+          </div>
+        </div>
+        <table class="work">
+          <tr><th>Description of work / service</th><th class="num" style="width:52px">Qty</th><th style="width:64px">Unit</th><th class="num" style="width:88px">Unit price</th><th class="num" style="width:88px">Total</th></tr>
+          ${rows}${blankRows}
+        </table>
+        <div style="display:flex;gap:26px;align-items:flex-start">
+          <div style="flex:1">
+            <div class="blackbar">Additional information</div>
+            <div class="boxarea">${esc(d.addInfo)}</div>
+            <div class="blackbar">Notes / Terms</div>
+            <ul class="notes">
+              <li>This quotation is valid for the period stated above.</li>
+              <li>Prices are subject to change after expiry.</li>
+              <li>Any additional work required will be quoted separately.</li>
+              <li>Payment terms: ${esc(d.payTerms)||"________________"}</li>
+              <li>Thank you for the opportunity to quote.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="totblock">
+              <div class="trow"><div class="lab">SUBTOTAL</div><div class="val">${d.subtotal}</div></div>
+              <div class="trow"><div class="lab">TAX ( ${esc(d.taxPct)||0} % )</div><div class="val">${d.taxAmt}</div></div>
+              <div class="trow tint"><div class="lab">TOTAL (EXCL. TAX)</div><div class="val">${d.subtotal}</div></div>
+              <div class="trow"><div class="lab">TAX</div><div class="val">${d.taxAmt}</div></div>
+              <div class="trow gold"><div class="lab">TOTAL (INCL. TAX)</div><div class="val">${d.totalIncl}</div></div>
+            </div>
+            <div class="authline">Authorised By</div>
+          </div>
+        </div>
+        <div class="script-foot">We look forward to working with you!</div>
+      </div>
+      <div class="bfoot"></div>`;
+    },
+    excel(d){
+      const rows=[["SUPERIOR EXTERIOR CLEANING & MAINTENANCE LTD"],["QUOTATION"],["Quotation No.",d.quoteNo],["Date",fmtDate(d.date)],["Valid until",fmtDate(d.validUntil)],[],
+      ["QUOTE TO"],["Name",d.qName],["Company",d.qCompany],["Address",d.qAddress],["Phone",d.qPhone],["Email",d.qEmail],[],
+      ["SITE ADDRESS (IF DIFFERENT)"],["Name",d.sName],["Address",d.sAddress],["Phone",d.sPhone],[],
+      ["Description of work / service","Qty","Unit","Unit price","Total"]];
+      d.items.forEach(r=>rows.push([r.desc,+r.qty||0,r.unit,+money(r.price),+money((+r.qty||0)*(+r.price||0))]));
+      rows.push([],["","","","SUBTOTAL",+d.subtotal],["","","",`TAX ${d.taxPct||0}%`,+d.taxAmt],["","","","TOTAL (INCL. TAX)",+d.totalIncl],[],["Additional information",d.addInfo],["Payment terms",d.payTerms]);
+      return rows;
+    }
+  },
+
+  /* ---------- PRE-QUOTATION (branded, matches original) ---------- */
+  prequotation: {
+    label:"Pre-Quotation", nameField:"qName",
+    fields:[
+      {g:"Pre-quotation details"},
+      {k:"preNo",l:"Pre Quotation No.",t:"text",half:"date"},
+      {k:"date",l:"Pre Quotation Date",t:"date",auto:"date"},
+      {g:"Pre quotation to"},
+      {k:"qName",l:"Name",t:"text"},
+      {k:"qCompany",l:"Company",t:"text"},
+      {k:"qAddress",l:"Address",t:"textarea"},
+      {k:"qPhone",l:"Phone",t:"text",half:"qEmail"},
+      {k:"qEmail",l:"Email",t:"text"},
+      {g:"Site address (if different)"},
+      {k:"sName",l:"Name",t:"text"},
+      {k:"sAddress",l:"Address",t:"textarea"},
+      {k:"sPhone",l:"Phone",t:"text"},
+      {g:"Job notes"},
+      {k:"addInfo",l:"Additional information",t:"textarea"},
+      {k:"diagram",l:"Diagram / measurements (notes)",t:"textarea"},
+      {k:"completedBy",l:"Completed by",t:"text"},
+    ],
+    compute(d){},
+    preview(d){
+      return brandHeader("PRE QUOTATION",[["Pre Quotation No:",d.preNo],["Pre Quotation Date:",fmtDate(d.date)]],BRAND.emailCML,false)+`
+      <div class="body">
+        <div class="cols2">
+          <div><div class="h-plain">PRE QUOTATION TO:</div>
+            ${fline("Name",d.qName)}${fline("Company",d.qCompany)}${fline("Address",d.qAddress)}${fline("Phone",d.qPhone)}${fline("Email",d.qEmail)}
+          </div>
+          <div><div class="h-plain">SITE ADDRESS (IF DIFFERENT):</div>
+            ${fline("Name",d.sName)}${fline("Address",d.sAddress)}${fline("Phone",d.sPhone)}
+          </div>
+        </div>
+        <div style="font-weight:800;margin-top:20px;font-size:13.5px">ADDITIONAL INFORMATION</div>
+        <div class="boxarea">${esc(d.addInfo)}</div>
+        <div style="font-weight:800;margin-top:16px;font-size:13.5px">DIAGRAM / MEASUREMENTS</div>
+        <div class="boxarea tall">${esc(d.diagram)}</div>
+        <div class="fline" style="margin-top:22px;max-width:380px"><b style="font-weight:800">COMPLETED BY:</b><span>${esc(d.completedBy)}</span></div>
+      </div>
+      <div class="bfoot"></div>`;
+    },
+    excel(d){
+      return [["SUPERIOR EXTERIOR CLEANING & MAINTENANCE LTD"],["PRE QUOTATION"],["Pre Quotation No.",d.preNo],["Pre Quotation Date",fmtDate(d.date)],[],
+      ["PRE QUOTATION TO"],["Name",d.qName],["Company",d.qCompany],["Address",d.qAddress],["Phone",d.qPhone],["Email",d.qEmail],[],
+      ["SITE ADDRESS (IF DIFFERENT)"],["Name",d.sName],["Address",d.sAddress],["Phone",d.sPhone],[],
+      ["ADDITIONAL INFORMATION",d.addInfo],["DIAGRAM / MEASUREMENTS",d.diagram],["COMPLETED BY",d.completedBy]];
+    }
+  },
+
+  /* ---------- INVOICE (branded, matches original) ---------- */
+  invoice: {
+    label:"Invoice", nameField:"bName",
+    fields:[
+      {g:"Invoice details"},
+      {k:"invNo",l:"Invoice No.",t:"text",half:"date"},
+      {k:"date",l:"Invoice date",t:"date",auto:"date"},
+      {k:"dueDate",l:"Due date",t:"date"},
+      {g:"Bill to"},
+      {k:"bName",l:"Name",t:"text"},
+      {k:"bCompany",l:"Company",t:"text"},
+      {k:"bAddress",l:"Address",t:"textarea"},
+      {k:"bPhone",l:"Phone",t:"text",half:"bEmail"},
+      {k:"bEmail",l:"Email",t:"text"},
+      {g:"Ship to (if different)"},
+      {k:"sName",l:"Name",t:"text"},
+      {k:"sCompany",l:"Company",t:"text"},
+      {k:"sAddress",l:"Address",t:"textarea"},
+      {k:"sPhone",l:"Phone",t:"text",half:"sEmail"},
+      {k:"sEmail",l:"Email",t:"text"},
+      {g:"Charges"},
+      {k:"description",l:"Description of work",t:"textarea"},
+      {k:"subtotal",l:"Subtotal",t:"number",half:"vatPct"},
+      {k:"vatPct",l:"VAT %",t:"number",def:"20"},
+      {g:"Payment information"},
+      {k:"payBank",l:"Bank transfer (details)",t:"text"},
+      {k:"payCard",l:"Card payment",t:"text",half:"payCash"},
+      {k:"payCash",l:"Cash",t:"text"},
+    ],
+    compute(d){
+      const sub=+d.subtotal||0, vat=sub*((+d.vatPct||0)/100);
+      d.vatAmt=money(vat); d.totalDue=money(sub+vat);
+    },
+    preview(d){
+      return brandHeader("INVOICE",[["Invoice No:",d.invNo],["Invoice Date:",fmtDate(d.date)],["Due Date:",fmtDate(d.dueDate)]],BRAND.emailMLTD,true)+`
+      <div class="body">
+        <div class="cols2">
+          <div><div class="h-plain">BILL TO:</div>
+            ${fline("Name",d.bName)}${fline("Company",d.bCompany)}${fline("Address",d.bAddress)}${fline("Phone",d.bPhone)}${fline("Email",d.bEmail)}
+          </div>
+          <div><div class="h-plain">SHIP TO (IF DIFFERENT):</div>
+            ${fline("Name",d.sName)}${fline("Company",d.sCompany)}${fline("Address",d.sAddress)}${fline("Phone",d.sPhone)}${fline("Email",d.sEmail)}
+          </div>
+        </div>
+        <div class="blackbar" style="text-align:center;margin-top:22px">Description</div>
+        <div class="boxarea" style="min-height:230px">${esc(d.description)}</div>
+        <div class="invtot">
+          <div class="trow"><div class="lab">SUBTOTAL:</div><div class="val">${money(d.subtotal)}</div></div>
+          <div class="trow"><div class="lab">VAT ( ${esc(d.vatPct)||0}% ):</div><div class="val">${d.vatAmt}</div></div>
+          <div class="trow"><div class="lab">TOTAL DUE:</div><div class="val">${d.totalDue}</div></div>
+        </div>
+        <div class="hr-heavy"></div>
+        <div class="h-plain" style="margin-top:10px">PAYMENT INFORMATION:</div>
+        <div class="payline">
+          <div>&#127974; Bank Transfer:<span>${esc(d.payBank)}</span></div>
+          <div>&#128179; Card Payment:<span>${esc(d.payCard)}</span></div>
+          <div>&#128181; Cash:<span>${esc(d.payCash)}</span></div>
+        </div>
+        <div class="thanks-black">THANK YOU FOR YOUR BUSINESS!</div>
+      </div>
+      <div class="bfoot"></div>`;
+    },
+    excel(d){
+      return [["SUPERIOR EXTERIOR CLEANING & MAINTENANCE LTD"],["INVOICE"],["Invoice No.",d.invNo],["Invoice date",fmtDate(d.date)],["Due date",fmtDate(d.dueDate)],[],
+      ["BILL TO"],["Name",d.bName],["Company",d.bCompany],["Address",d.bAddress],["Phone",d.bPhone],["Email",d.bEmail],[],
+      ["SHIP TO (IF DIFFERENT)"],["Name",d.sName],["Company",d.sCompany],["Address",d.sAddress],["Phone",d.sPhone],["Email",d.sEmail],[],
+      ["Description",d.description],[],
+      ["SUBTOTAL",+money(d.subtotal)],[`VAT ${d.vatPct||0}%`,+d.vatAmt],["TOTAL DUE",+d.totalDue],[],
+      ["Bank transfer",d.payBank],["Card payment",d.payCard],["Cash",d.payCash]];
+    }
+  },
+
+  /* ---------- RECEIPT (plain, matches original) ---------- */
+  receipt: {
+    label:"Receipt", nameField:"receivedFrom",
+    fields:[
+      {k:"receiptNo",l:"Receipt No.",t:"text",half:"date"},
+      {k:"date",l:"Date",t:"date",auto:"date"},
+      {k:"receivedFrom",l:"Received from",t:"text"},
+      {k:"receivedBy",l:"Received by",t:"text"},
+      {k:"address",l:"Address",t:"text"},
+      {k:"phone",l:"Phone",t:"text"},
+      {k:"description",l:"Description",t:"textarea"},
+      {k:"subtotal",l:"Subtotal",t:"number",half:"tax"},
+      {k:"tax",l:"Tax",t:"number"},
+    ],
+    compute(d){ d.totalPaid=money((+d.subtotal||0)+(+d.tax||0)); },
+    preview(d){ return brandHeader("RECEIPT",[["Receipt No.:",d.receiptNo],["Date:",fmtDate(d.date)]],BRAND.emailCML,false)+`
+      <div class="body" style="padding-top:26px">
+        <div class="kv"><b>Received From.</b><span>${esc(d.receivedFrom)}</span></div>
+        <div class="kv"><b>Received By.</b><span>${esc(d.receivedBy)}</span></div>
+        <div class="kv"><b>Address.</b><span>${esc(d.address)}</span></div>
+        <div class="kv"><b>Phone.</b><span>${esc(d.phone)}</span></div>
+        <div class="kv"><b>Description.</b><span>${esc(d.description)}</span></div>
+        <div style="max-width:340px;margin-left:auto;margin-top:30px">
+          <div class="kv"><b>Subtotal.</b><span class="num">${money(d.subtotal)}</span></div>
+          <div class="kv"><b>Tax.</b><span class="num">${money(d.tax)}</span></div>
+          <div class="kv" style="font-weight:800;font-size:15px"><b>Total Paid.</b><span class="num">${d.totalPaid}</span></div>
+        </div>
+        <div class="thanks-black">THANK YOU FOR YOUR BUSINESS!</div>
+      </div>
+      <div class="bfoot"></div>`; },
+    excel(d){ return [["RECEIPT"],["Receipt No.",d.receiptNo],["Date",fmtDate(d.date)],["Received from",d.receivedFrom],["Received by",d.receivedBy],["Address",d.address],["Phone",d.phone],["Description",d.description],[],["Subtotal",+money(d.subtotal)],["Tax",+money(d.tax)],["Total paid",+d.totalPaid]]; }
+  },
+
+  /* ---------- PAYMENT PLAN (plain, matches original, £) ---------- */
+  paymentplan: {
+    label:"Payment Plan", nameField:"debtorName",
+    fields:[
+      {k:"date",l:"Date",t:"date",auto:"date"},
+      {g:"Debtor details"},
+      {k:"debtorName",l:"Name",t:"text"},
+      {k:"debtorAddress",l:"Address",t:"text"},
+      {k:"debtorContact",l:"Phone / email",t:"text"},
+      {g:"Creditor details"},
+      {k:"creditorName",l:"Name / company",t:"text"},
+      {k:"creditorAddress",l:"Address",t:"text"},
+      {g:"Payment details"},
+      {k:"totalOwed",l:"Total amount owed (£)",t:"number",half:"deposit"},
+      {k:"deposit",l:"Deposit, if applicable (£)",t:"number"},
+    ],
+    items:{cols:[{k:"due",l:"Payment due date",t:"date",w:"1.2fr"},{k:"amount",l:"Amount (£)",t:"number",w:"1fr"},{k:"paid",l:"Paid (yes/no)",t:"text",w:".9fr"}],
+      total:r=>(+r.amount||0)},
+    compute(d){ d.balance=money((+d.totalOwed||0)-(+d.deposit||0)); },
+    preview(d){ return brandHeader("PAYMENT PLAN",[["Agreement Date:",fmtDate(d.date)]],BRAND.emailCML,false)+`
+      <div class="body" style="padding-top:22px">
+        <div class="psec">Debtor Details</div>
+        <div class="kv"><b>Name:</b><span>${esc(d.debtorName)}</span></div>
+        <div class="kv"><b>Address:</b><span>${esc(d.debtorAddress)}</span></div>
+        <div class="kv"><b>Phone/Email:</b><span>${esc(d.debtorContact)}</span></div>
+        <div class="psec">Creditor Details</div>
+        <div class="kv"><b>Name/Company:</b><span>${esc(d.creditorName)}</span></div>
+        <div class="kv"><b>Address:</b><span>${esc(d.creditorAddress)}</span></div>
+        <div class="psec">Payment Details</div>
+        <div class="kv"><b>Total Amount Owed:</b><span class="num">£ ${money(d.totalOwed)}</span></div>
+        <div class="kv"><b>Deposit (if applicable):</b><span class="num">£ ${money(d.deposit)}</span></div>
+        <div class="kv"><b>Balance Remaining:</b><span class="num">£ ${d.balance}</span></div>
+        <div class="psec">Payment Schedule</div>
+        <table class="plain"><tr><th>Payment Due Date.</th><th>Amount.</th><th>Paid</th></tr>
+        ${d.items.map(r=>`<tr><td>${fmtDate(r.due)}</td><td class="num">${r.amount!==""?"£ "+money(r.amount):""}</td><td>${esc(r.paid)}</td></tr>`).join("")}</table>
+        <div class="psec">Agreement.</div>
+        <div style="font-size:13px">I agree to pay the balance owed according to the payment schedule above. If I am unable to make a payment on time, I will notify the creditor as soon as possible.</div>
+        <div class="sig2"><div>Debtor Signature / Date</div><div>Creditor Signature / Date</div></div>
+      </div>
+      <div class="bfoot"></div>`; },
+    excel(d){ const rows=[["PAYMENT PLAN AGREEMENT"],["Date",fmtDate(d.date)],[],["DEBTOR DETAILS"],["Name",d.debtorName],["Address",d.debtorAddress],["Phone/Email",d.debtorContact],[],["CREDITOR DETAILS"],["Name/Company",d.creditorName],["Address",d.creditorAddress],[],["Total owed (£)",+money(d.totalOwed)],["Deposit (£)",+money(d.deposit)],["Balance remaining (£)",+d.balance],[],["Payment due date","Amount (£)","Paid"]];
+      d.items.forEach(r=>rows.push([fmtDate(r.due),+money(r.amount),r.paid]));
+      return rows; }
+  }
+};
+
+/* ================= state ================= */
+const state = {};
+for (const key in FORMS){
+  const f = FORMS[key], d = {};
+  f.fields.forEach(fl=>{
+    if (fl.g) return;
+    d[fl.k] = fl.def ?? "";
+    if (fl.auto==="date") d[fl.k]=todayISO();
+  });
+  if (f.items) d.items = [ blankRow(f), blankRow(f), blankRow(f) ];
+  state[key]=d;
+}
+function blankRow(f){ const r={}; f.items.cols.forEach(c=>r[c.k]=""); return r; }
+let current = "quotation";
+let dirHandle = null;
+
+/* ================= UI build ================= */
+const ORDER = ["quotation","prequotation","invoice","receipt","paymentplan"];
+const tabsEl = $("tabs");
+ORDER.forEach(key=>{
+  const b=document.createElement("button");
+  b.textContent=FORMS[key].label; b.dataset.key=key;
+  b.onclick=()=>switchForm(key);
+  tabsEl.appendChild(b);
+});
+
+function switchForm(key){
+  current=key;
+  [...tabsEl.children].forEach(b=>b.classList.toggle("active",b.dataset.key===key));
+  buildFields(); render();
+}
+
+function buildFields(){
+  const f=FORMS[current], d=state[current], box=$("form-fields");
+  $("form-title").textContent = f.label + " details";
+  let html="", i=0;
+  const fields=f.fields;
+  while(i<fields.length){
+    const fl=fields[i];
+    if (fl.g){ html+=`<div class="grp">${esc(fl.g)}</div>`; i++; continue; }
+    if (fl.half){
+      const nx=fields[i+1];
+      html+=`<div class="row2">${fieldHTML(fl,d)}${fieldHTML(nx,d)}</div>`; i+=2;
+    } else { html+=fieldHTML(fl,d); i++; }
+  }
+  if (f.items){
+    const grid = f.items.cols.map(c=>c.w).join(" ") + " 36px";
+    html+=`<div class="grp">Items / schedule</div>`;
+    html+=`<div class="items-head" style="grid-template-columns:${grid}">${f.items.cols.map(c=>`<span>${c.l}</span>`).join("")}<span></span></div>`;
+    html+=d.items.map((r,ri)=>`<div class="item-row" style="grid-template-columns:${grid}">`+
+      f.items.cols.map(c=>`<input type="${c.t}" ${c.t==="number"?'step="any" min="0"':''} value="${esc(r[c.k])}" oninput="setItem(${ri},'${c.k}',this.value)">`).join("")+
+      `<button class="del" title="Remove row" onclick="delRow(${ri})">✕</button></div>`).join("");
+    html+=`<button class="btn add" onclick="addRow()">＋ Add row</button>`;
+  }
+  box.innerHTML=html;
+}
+function fieldHTML(fl,d){
+  const v=esc(d[fl.k]);
+  const inner = fl.t==="textarea"
+    ? `<textarea oninput="setF('${fl.k}',this.value)" placeholder="${esc(fl.ph||"")}">${v}</textarea>`
+    : `<input type="${fl.t}" ${fl.t==="number"?'step="any"':''} value="${v}" placeholder="${esc(fl.ph||"")}" oninput="setF('${fl.k}',this.value)">`;
+  return `<div class="field"><label>${fl.l}</label>${inner}</div>`;
+}
+window.setF=(k,v)=>{ state[current][k]=v; render(); };
+window.setItem=(ri,k,v)=>{ state[current].items[ri][k]=v; render(); };
+window.addRow=()=>{ state[current].items.push(blankRow(FORMS[current])); buildFields(); render(); };
+window.delRow=ri=>{ const it=state[current].items; if(it.length>1) it.splice(ri,1); buildFields(); render(); };
+
+function render(){
+  const f=FORMS[current], d=state[current];
+  if (f.compute) f.compute(d);
+  $("sheet").innerHTML = f.preview(d);
+  $("fname-preview").textContent = fileBase()+".pdf / .doc / .xlsx";
+}
+function fileBase(){
+  const f=FORMS[current], d=state[current];
+  return `${sanitize(d[f.nameField])}_${f.label.replace(/[^\w]/g,"")}_${todayISO()}`;
+}
+
+/* ================= folder + saving ================= */
+let saveMode = "ask";           // "ask" | "folder" | "download"
+const SUBFOLDER = { quotation:"Quotations", prequotation:"Pre-Quotations", invoice:"Invoices", receipt:"Receipts", paymentplan:"Payment Plans" };
+const FILETYPES = {
+  ".pdf" : {description:"PDF document",  accept:{"application/pdf":[".pdf"]}},
+  ".doc" : {description:"Word document", accept:{"application/msword":[".doc"]}},
+  ".xlsx": {description:"Excel workbook",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}},
+};
+
+window.setSaveMode = m => {
+  saveMode = m;
+  $("folderopts").style.display = (m==="folder") ? "block" : "none";
+  if (m==="folder" && !dirHandle) chooseFolder();
+  if (m==="ask" && !window.showSaveFilePicker)
+    toast("This browser can't show a Save As window — files will download instead.");
+};
+
+async function chooseFolder(){
+  if (!window.showDirectoryPicker){
+    toast("Folder picking isn't supported in this browser — use Downloads mode instead.");
+    return;
+  }
+  try{
+    dirHandle = await window.showDirectoryPicker({mode:"readwrite"});
+    $("folderline").innerHTML = `Saving to: <b>${esc(dirHandle.name)}</b>`;
+    toast("Files will be saved to “"+dirHandle.name+"”.");
+  }catch(e){ /* user cancelled the picker */ }
+}
+
+/* make sure we still have write permission (Chrome can revoke between sessions) */
+async function ensurePermission(handle){
+  const opts = {mode:"readwrite"};
+  if (await handle.queryPermission(opts) === "granted") return true;
+  return (await handle.requestPermission(opts)) === "granted";
+}
+
+async function writeToHandle(fileHandle, blob){
+  const w = await fileHandle.createWritable();
+  await w.write(blob);
+  await w.close();
+}
+
+function downloadBlob(blob, filename){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800);
+  toast("Downloaded "+filename+" (check your Downloads folder)");
+}
+
+async function saveBlob(blob, filename){
+  const ext = filename.slice(filename.lastIndexOf("."));
+
+  /* MODE 1 — Save As dialog: user picks the exact pathway every time */
+  if (saveMode==="ask" && window.showSaveFilePicker){
+    try{
+      const picker = {
+        suggestedName: filename,
+        types: FILETYPES[ext] ? [FILETYPES[ext]] : undefined
+      };
+      if (dirHandle) picker.startIn = dirHandle;   // open where they saved last
+      const fh = await window.showSaveFilePicker(picker);
+      await writeToHandle(fh, blob);
+      toast("Saved "+fh.name);
+      return;
+    }catch(e){
+      if (e && e.name==="AbortError"){ toast("Save cancelled — nothing was written."); return; }
+      toast("Save As failed — downloading instead.");
+      downloadBlob(blob, filename);
+      return;
+    }
+  }
+
+  /* MODE 2 — fixed folder (with optional per-form subfolders) */
+  if (saveMode==="folder"){
+    if (!dirHandle){ toast("Pick a folder first (📁 Choose folder…)."); return; }
+    try{
+      if (!await ensurePermission(dirHandle)){
+        toast("Permission to that folder was refused — downloading instead.");
+        downloadBlob(blob, filename); return;
+      }
+      let target = dirHandle;
+      if ($("subfolders")?.checked){
+        target = await dirHandle.getDirectoryHandle(SUBFOLDER[current] || "Forms", {create:true});
+      }
+      const fh = await target.getFileHandle(filename,{create:true});
+      await writeToHandle(fh, blob);
+      const where = target===dirHandle ? dirHandle.name : dirHandle.name+" › "+target.name;
+      toast("Saved "+filename+" to “"+where+"”.");
+      return;
+    }catch(e){
+      toast("Couldn't write to that folder — downloading instead.");
+      downloadBlob(blob, filename); return;
+    }
+  }
+
+  /* MODE 3 — plain download */
+  downloadBlob(blob, filename);
+}
+
+/* ================= exports ================= */
+async function exportPDF(){
+  toast("Building PDF…");
+  const sheet=$("sheet");
+  const canvas = await html2canvas(sheet,{scale:2,backgroundColor:"#ffffff",useCORS:true});
+  const img = canvas.toDataURL("image/jpeg",0.95);
+  const pdf = new jspdf.jsPDF({unit:"mm",format:"a4"});
+  const pw=210, ph=297, margin=8;
+  const iw=pw-margin*2, ih=iw*canvas.height/canvas.width;
+  if (ih <= ph-margin*2){
+    pdf.addImage(img,"JPEG",margin,margin,iw,ih);
+  } else {
+    let remaining=ih, sy=0;
+    const pageImgH = ph-margin*2;
+    const pxPerMM = canvas.height/ih;
+    while (remaining>0){
+      const sliceH = Math.min(pageImgH, remaining)*pxPerMM;
+      const c2=document.createElement("canvas");
+      c2.width=canvas.width; c2.height=sliceH;
+      const ctx=c2.getContext("2d");
+      ctx.fillStyle="#fff"; ctx.fillRect(0,0,c2.width,c2.height);
+      ctx.drawImage(canvas,0,sy,canvas.width,sliceH,0,0,canvas.width,sliceH);
+      pdf.addImage(c2.toDataURL("image/jpeg",0.95),"JPEG",margin,margin,iw,Math.min(pageImgH,remaining));
+      remaining-=pageImgH; sy+=sliceH;
+      if (remaining>0) pdf.addPage();
+    }
+  }
+  await saveBlob(pdf.output("blob"), fileBase()+".pdf");
+}
+
+async function exportWord(){
+  const sheetHTML=$("sheet").innerHTML;
+  const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+  <head><meta charset="utf-8"><title>${esc(FORMS[current].label)}</title>
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;font-size:10.5pt;color:#111}
+    .bband{background:#0e0e0e;color:#fff;padding:12pt}
+    .bband table{width:100%}
+    .btitle{color:#f2c114;font-size:24pt;font-weight:bold;text-align:right}
+    .contact{font-size:9pt;color:#fff}
+    .ic{color:#f2c114}
+    .meta b{color:#fff}.meta span{border-bottom:1pt solid #fff;color:#fff;padding:0 4pt}
+    .meta.boxed span{background:#fff;color:#111;border:1pt solid #999;padding:1pt 4pt}
+    .gold-rule{border-top:4pt solid #f2c114;font-size:0;height:0}
+    .h-plain{font-weight:bold;font-size:10.5pt;margin:10pt 0 4pt}
+    .fline b{font-weight:normal}
+    .fline span{border-bottom:1pt solid #777;padding:0 3pt}
+    table.work{border-collapse:collapse;width:100%;margin-top:10pt}
+    table.work th{background:#0e0e0e;color:#f2c114;border:1pt solid #111;padding:4pt 6pt;font-size:8.5pt;text-transform:uppercase}
+    table.work td{border:1pt solid #444;padding:4pt 6pt;font-size:9.5pt}
+    .blackbar{background:#0e0e0e;color:#f2c114;font-weight:bold;text-transform:uppercase;padding:4pt 8pt;font-size:9.5pt;margin-top:12pt}
+    .boxarea{border:1.5pt solid #111;padding:6pt;min-height:40pt}
+    .totblock,.invtot{margin-left:55%;width:45%;border-collapse:collapse}
+    .trow{border:1pt solid #444}
+    .trow .lab{font-weight:bold;padding:4pt 6pt}
+    .trow .val{text-align:right;padding:4pt 6pt}
+    .trow.gold{background:#f2c114;font-weight:bold}
+    .trow.tint{background:#faedbe}
+    .notes li{font-size:9pt}
+    .authline{border-top:1.5pt solid #111;width:160pt;margin-left:60%;text-align:center;font-style:italic;font-size:9pt;margin-top:26pt;padding-top:2pt}
+    .script-foot{text-align:center;font-family:"Segoe Script","Brush Script MT",cursive;font-size:14pt;margin-top:16pt}
+    .thanks-black{text-align:center;font-weight:bold;margin-top:12pt}
+    .plain-title{font-size:18pt;font-weight:bold;text-transform:uppercase;border-bottom:2pt solid #111;padding-bottom:4pt;margin-bottom:12pt}
+    .psec{font-weight:bold;border-bottom:1pt solid #999;margin:10pt 0 3pt}
+    .kv b{display:inline-block;min-width:150px;font-weight:bold}
+    .kv span{border-bottom:1pt dotted #777;padding:0 3pt}
+    table.plain{border-collapse:collapse;width:100%}
+    table.plain th{background:#f0f2f6;border:1pt solid #999;padding:4pt 6pt;font-size:8.5pt;text-transform:uppercase;text-align:left}
+    table.plain td{border:1pt solid #999;padding:4pt 6pt;font-size:9.5pt}
+    .sig2 div{display:inline-block;width:40%;border-top:1.5pt solid #222;padding-top:3pt;font-size:9pt;text-align:center;margin-right:6%}
+    .payline div{display:inline-block;width:30%;font-size:9pt}
+    .payline span{border-bottom:1pt solid #555;padding:0 3pt}
+    .hr-heavy{border-top:2pt solid #111;margin-top:14pt;font-size:0;height:0}
+  </style></head><body>${sheetHTML}</body></html>`;
+  const blob = new Blob(['\ufeff'+doc],{type:"application/msword"});
+  await saveBlob(blob, fileBase()+".doc");
+}
+
+async function exportExcel(){
+  const f=FORMS[current], d=state[current];
+  if (f.compute) f.compute(d);
+  const rows=f.excel(d);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"]=[{wch:32},{wch:30},{wch:12},{wch:14},{wch:16}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, f.label.slice(0,30));
+  const out=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+  await saveBlob(new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), fileBase()+".xlsx");
+}
+
+/* boot */
+switchForm("quotation");
+</script>
+</body>
+</html>

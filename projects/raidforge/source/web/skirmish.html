@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sword &amp; Dungeon · Raidforge</title>
+  <link rel="stylesheet" href="/skirmish.css">
+  <script src="/skirmish.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">S</span><span>SWORD &amp; DUNGEON<small>RAIDFORGE · TACTICAL SKIRMISH</small></span></a>
+    <span class="status"><i id="model-dot"></i> <span id="model-status">Checking local model…</span></span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="kicker">ONE BATTLE. YOUR BUILD.</p>
+        <h1>Make the hero<br><em>yours.</em></h1>
+        <p class="lede">Describe a fight. The agent writes a brief story, draws a connected map, and deals monster cards. Everyone begins with the same Level 1 profile; win a skirmish to gain a level and one Build Point.</p>
+      </div>
+      <aside class="scope">
+        <span>SCOPE</span>
+        <strong>D6 tests · D3 / D12 damage</strong>
+        <p>Items, loot, and detailed gear are not in this version.</p>
+      </aside>
+    </section>
+
+    <nav aria-label="Skirmish sections">
+      <button class="tab active" data-panel="create">Create</button>
+      <button class="tab" data-panel="forge">Live forge <i id="forge-dot" class="live-dot" hidden></i></button>
+      <button class="tab" data-panel="skirmish">Skirmish</button>
+      <button class="tab" data-panel="character">Character build</button>
+      <button class="tab" data-panel="rules">Core rules</button>
+      <span id="version">Loading rules…</span>
+    </nav>
+
+    <p id="error" role="alert" hidden></p>
+
+    <section id="create" class="panel">
+      <div class="section-title"><div><p class="kicker">GENERATION AGENT</p><h2>Brief the skirmish.</h2></div><span class="badge">CODE OWNS THE NUMBERS</span></div>
+      <form id="brief-form" class="brief">
+        <label class="wide">Story concept<textarea id="concept" rows="3" maxlength="600" required>Grave robbers broke into the crypt beneath the old chapel and woke something that should have stayed asleep.</textarea></label>
+        <label>Title <small>optional</small><input id="title" maxlength="80" placeholder="Let the agent name it"></label>
+        <label>Seed<input id="seed" type="number" min="0" max="2147483647" placeholder="Random"></label>
+        <fieldset class="wide">
+          <legend>Monsters <small>optional. Names you type are printed exactly. Zombie, Chaos Spawn, and Vampire keep their fixed one-page cards; leave quantity blank to fill from the difficulty budget.</small></legend>
+          <div id="monster-rows"></div>
+          <button type="button" class="ghost" id="add-monster">+ Add monster</button>
+        </fieldset>
+        <label>Party size<select id="party"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label>Difficulty<select id="difficulty"><option value="easy">Easy</option><option value="standard" selected>Standard</option><option value="hard">Hard</option></select></label>
+        <label>Writer<select id="backend"><option value="offline">Offline templates</option><option value="ollama">Local AI · Ollama</option></select></label>
+        <label>Local model<select id="model"></select></label>
+        <label class="wide check"><input type="checkbox" id="think"> Let the model think out loud (thinking models only; slower, and you can watch its reasoning)</label>
+        <div class="wide actions"><button class="primary" id="generate">Generate skirmish →</button><small id="generate-note">Offline is instant. A local model can take a minute.</small></div>
+      </form>
+    </section>
+
+    <section id="forge" class="panel" hidden>
+      <div class="section-title"><div><p class="kicker" id="forge-meta">GENERATION AGENT · IDLE</p><h2 id="forge-title">Nothing forging yet.</h2></div><span class="badge" id="forge-clock">00:00</span></div>
+      <div class="forge-grid">
+        <aside class="forge-steps">
+          <ol id="steps"><li class="pending"><b></b><span>Generate a skirmish from the Create tab to watch the agent work.</span></li></ol>
+          <div id="roster-chips" class="chips"></div>
+          <div id="forge-done" hidden><button class="primary" id="open-result">Open skirmish →</button></div>
+        </aside>
+        <div class="forge-main">
+          <article class="console" id="thinking-console" hidden><div class="console-head"><span>MODEL REASONING</span><span id="thinking-count"></span></div><pre id="thinking"></pre></article>
+          <article class="console"><div class="console-head"><span id="output-label">MODEL OUTPUT</span><span id="token-rate"></span></div><pre id="output" class="cursor"></pre></article>
+          <article class="console log"><div class="console-head"><span>AGENT LOG</span><span>DECISIONS</span></div><pre id="agent-log"></pre></article>
+          <article class="map-card forge-map" id="forge-map-card" hidden><div class="card-heading"><span>MAP · DRAWN FROM THE ENTRANCE OUTWARD</span><span id="forge-map-size"></span></div><div id="forge-map" class="map"></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="skirmish" class="panel" hidden>
+      <div class="section-title"><div><p class="kicker" id="scenario-meta">SKIRMISH</p><h2 id="scenario-name">Loading…</h2></div><label class="picker">Saved<select id="saved"></select></label></div>
+      <article class="story-card">
+        <p id="story"></p>
+        <div><small>OBJECTIVE</small><strong id="objective"></strong></div>
+      </article>
+      <div class="battle-grid">
+        <article class="map-card">
+          <div class="card-heading"><span>TACTICAL MAP</span><span>1 SQUARE = 1 INCH</span></div>
+          <div id="map" class="map" aria-label="Scenario map"></div>
+          <div id="legend" class="legend"></div>
+        </article>
+        <section>
+          <p class="kicker">MONSTER ROSTER</p>
+          <div id="monsters" class="monsters"></div>
+        </section>
+      </div>
+      <p id="completion" class="completion"></p>
+    </section>
+
+    <section id="character" class="panel" hidden>
+      <div class="section-title"><div><p class="kicker">UNIVERSAL START</p><h2>Same base. Different build.</h2></div><span class="badge">LEVEL 1</span></div>
+      <div id="base-stats" class="stat-grid"></div>
+      <div id="combat-rules" class="combat-rules"></div>
+      <div class="build-layout">
+        <article class="build-rule"><p class="kicker">LEVEL-UP LOOP</p><h3>Win → level → choose</h3><p id="level-rule"></p><div id="basic-attack" class="attack"></div></article>
+        <section><p class="kicker">SPEND ONE BUILD POINT</p><div id="choices" class="choices"></div></section>
+      </div>
+    </section>
+
+    <section id="rules" class="panel" hidden>
+      <div class="section-title"><div><p class="kicker">PLAY REFERENCE</p><h2>Core rules.</h2></div><a class="ghost rules-source" href="/rules" target="_blank" rel="noopener">Open Markdown source</a></div>
+      <article class="rules-sheet" id="rules-content" aria-live="polite"><p>Loading the rules…</p></article>
+    </section>
+  </main>
+
+  <footer><span>SWORD &amp; DUNGEON / CORE RULES</span><span>Balance is provisional. Review generated text before play.</span></footer>
+</body>
+</html>

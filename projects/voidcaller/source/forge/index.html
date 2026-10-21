@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voidcaller · Forge</title>
+<link rel="stylesheet" href="/forge.css">
+</head>
+<body>
+<header>
+  <div class="brand">VOIDCALLER <span>/ FORGE</span></div>
+  <p class="header-note">Build the world once. The game reads it directly.</p>
+  <div class="rig">
+    <label>Ollama model
+      <input id="model" list="modellist" placeholder="no models found" autocomplete="off">
+      <datalist id="modellist"></datalist>
+    </label>
+    <label>Local endpoint
+      <input id="endpoint" value="http://localhost:11434" spellcheck="false">
+    </label>
+    <button id="refresh" class="ghost">Check</button>
+    <span id="ollamastate" class="state">looking…</span>
+  </div>
+</header>
+
+<main class="forge-shell">
+  <aside class="world-rail" aria-label="World summary">
+    <div>
+      <p class="eyebrow">WORLD BUILDER</p>
+      <h1>Make the places, creatures, and contracts your hunter will live in.</h1>
+      <p class="note">Start with a monster and an area. Assign the monster to that area. Then create an operation that points there.</p>
+    </div>
+    <div class="build-order" aria-label="Recommended build order">
+      <span>01 · Monster</span>
+      <span>02 · Void Area</span>
+      <span>03 · Operation</span>
+      <span>04 · Gear, recipes, farm</span>
+    </div>
+    <div id="library" class="library"></div>
+  </aside>
+
+  <section class="studio" aria-label="World editor">
+    <div class="studio-head">
+      <div>
+        <p class="eyebrow">CONTENT LIBRARY</p>
+        <h2>Your world</h2>
+      </div>
+      <div id="contentkinds" class="tabs" aria-label="Content type"></div>
+    </div>
+    <p class="note studio-note">Choose a record or make a new one. The simple editor is the normal workflow; raw JSON is only there for advanced changes.</p>
+    <div class="row manager-tools">
+      <input id="contentsearch" aria-label="Search your content" placeholder="Search this collection" spellcheck="false">
+      <button id="contentrefresh" class="ghost">Refresh</button>
+      <button id="contentnew" class="primary">New record</button>
+    </div>
+    <div class="manager-grid">
+      <div>
+        <p class="list-label">RECORDS <span id="contentcount"></span></p>
+        <div id="contentlist" class="content-list" aria-label="Content list"></div>
+      </div>
+      <div class="content-editor">
+        <div id="contentmeta" class="editor-kicker">Choose a record to begin.</div>
+        <div id="contentform" class="record-form"></div>
+        <div id="areaassignment" class="area-assignment" hidden></div>
+        <details class="advanced-json">
+          <summary>Advanced JSON</summary>
+          <p>Use this only when the guided fields do not cover a special data change.</p>
+          <textarea id="contentjson" spellcheck="false" placeholder="Choose NEW or a record from the list."></textarea>
+          <button id="contentformrefresh" class="ghost" type="button">Refresh guided fields from JSON</button>
+        </details>
+        <div class="row editor-actions">
+          <button id="contentcheck" class="ghost">Check</button>
+          <button id="contentrename" class="ghost">Rename</button>
+          <button id="contentsave" class="primary" disabled>Save changes</button>
+          <button id="contentcopy" class="ghost" disabled>Duplicate</button>
+          <button id="contentdelete" class="ghost danger" disabled>Remove</button>
+        </div>
+        <div id="contentstatus" class="manager-status" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="generation" aria-label="Ollama generation tools">
+  <details>
+    <summary>Generate with Ollama <span>Optional batch creation</span></summary>
+    <div class="generation-grid">
+      <div>
+        <div class="generation-section">
+          <p class="eyebrow">WHAT TO MAKE</p>
+          <div id="kinds" class="tabs"></div>
+          <p id="kindnote" class="note"></p>
+          <div id="form" class="form"></div>
+          <div class="row">
+            <label class="grow">How many
+              <input id="count" type="number" min="1" max="200" value="10"></label>
+            <label class="grow">Temperature
+              <input id="temp" type="number" min="0" max="2" step="0.05" value="0.9"></label>
+          </div>
+          <label class="check"><input id="strict" type="checkbox" checked>Use the exact game data shape</label>
+          <label class="check"><input id="skipdupes" type="checkbox" checked>Discard repeats automatically</label>
+          <div class="row">
+            <button id="forge" class="primary">Generate</button>
+            <button id="preview" class="ghost">Preview plan</button>
+            <button id="showprompt" class="ghost">View prompt</button>
+            <button id="stop" class="ghost" hidden>Stop</button>
+          </div>
+          <div id="progress" class="progress"></div>
+          <div id="planpreview" class="plan"></div>
+        </div>
+        <div class="generation-section hand-entry">
+          <p class="eyebrow">PASTE OR DROP JSON</p>
+          <textarea id="hand" spellcheck="false" placeholder="{ … }"></textarea>
+          <div class="row">
+            <button id="checkhand" class="ghost">Check it</button>
+            <button id="loadtemplate" class="ghost">Blank template</button>
+          </div>
+        </div>
+      </div>
+      <div class="batch-pane">
+        <div class="batch-tools">
+          <p class="eyebrow">BATCH <span id="batchcount"></span></p>
+          <label class="grow">File name
+            <input id="filename" value="forged" spellcheck="false"></label>
+          <button id="save" class="primary" disabled>Save kept records</button>
+          <button id="clear" class="ghost">Clear</button>
+        </div>
+        <p id="dest" class="note"></p>
+        <div id="batch"></div>
+      </div>
+    </div>
+  </details>
+</section>
+
+<div id="drop" class="drop"><div>Drop data to check it</div></div>
+
+<dialog id="promptbox">
+  <div class="phead">THE PROMPT <button id="closeprompt" class="ghost">Close</button></div>
+  <h4>System</h4><pre id="psys"></pre>
+  <h4>Request</h4><pre id="puser"></pre>
+</dialog>
+
+<script src="/forge.js"></script>
+</body>
+</html>

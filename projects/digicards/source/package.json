@@ -1,0 +1,6 @@
+{
+  "name": "digicards", "version": "0.1.0", "private": true, "type": "module",
+  "description": "Local card-game workbench inspired by Voidcaller",
+  "engines": {"node": ">=22"},
+  "scripts": {"start": "node server/index.js", "dev": "node --watch server/index.js", "test": "node --test tests/*.test.js", "check": "node --check public/app.js && node --check server/index.js && node --check src/battle.js"}
+}

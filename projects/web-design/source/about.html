@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About | Dan's Web Starter</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">Dan's Web Starter</a>
+    <nav aria-label="Main navigation">
+      <a href="index.html">Home</a>
+      <a aria-current="page" href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <p class="eyebrow">Page 2 · How the pieces fit</p>
+      <h1>What am I looking at?</h1>
+      <ol>
+        <li><strong>HTML</strong> describes the page: headings, paragraphs, links, buttons and forms. Every page here is its own <code>.html</code> file.</li>
+        <li><strong>CSS</strong> styles those elements. All three pages link to <code>styles.css</code>, so one change there can affect every page.</li>
+        <li><strong>JavaScript</strong> responds to events. All three pages load <code>script.js</code>. It checks whether a particular button or form exists before using it.</li>
+      </ol>
+      <h2>Follow one change</h2>
+      <p>On Home, find <code>id="count-button"</code>. In <code>script.js</code>, find <code>getElementById('count-button')</code>. That is how the script finds that exact HTML element. Click the button to see the result.</p>
+      <h2>Try another change</h2>
+      <p>In <code>styles.css</code>, change <code>--accent</code> near the top. Reload this page and the others to see which elements use that colour.</p>
+    </section>
+  </main>
+  <footer>Tip: right-click a page in your browser and choose Inspect to connect visible elements to their HTML and CSS.</footer>
+</body>
+</html>

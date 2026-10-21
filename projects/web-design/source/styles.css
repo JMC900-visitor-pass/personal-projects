@@ -1,0 +1,25 @@
+/* Global variables: change --accent and reload all pages. */
+:root { --accent: #285ee8; --ink: #18243a; --surface: #fff; --background: #f1f5fb; }
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--background); font: 17px/1.6 system-ui, sans-serif; }
+.site-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem max(1rem, calc((100vw - 900px)/2)); background: var(--surface); border-bottom: 1px solid #dbe3ef; }
+.brand { font-weight: 800; text-decoration: none; color: var(--ink); }
+nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+nav a { color: var(--ink); text-decoration: none; }
+nav a:hover, nav a[aria-current] { color: var(--accent); text-decoration: underline; }
+main { max-width: 900px; margin: 3rem auto; padding: 0 1rem; }
+.hero, .card { padding: clamp(1.3rem, 4vw, 3rem); background: var(--surface); border-radius: 16px; box-shadow: 0 6px 25px #192a4810; margin-bottom: 1.5rem; }
+.hero { background: #e6edff; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; margin: .4rem 0 1rem; }
+h2 { line-height: 1.25; margin-top: 1.5rem; }
+.eyebrow { text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-size: .8rem; font-weight: 800; }
+.button, button { display: inline-block; border: 0; border-radius: 8px; background: var(--accent); color: white; padding: .7rem 1rem; font: inherit; cursor: pointer; text-decoration: none; }
+.button:hover, button:hover { filter: brightness(.86); }
+:focus-visible { outline: 3px solid #ff9f2d; outline-offset: 3px; }
+.note { padding: .8rem 1rem; border-left: 4px solid var(--accent); background: #f5f8ff; }
+code { background: #eef2f8; padding: .1em .3em; border-radius: 4px; }
+li { margin-bottom: 1rem; }
+label { display: block; font-weight: 700; margin-bottom: .3rem; }
+input { display: block; width: min(100%, 24rem); padding: .7rem; margin-bottom: 1rem; border: 1px solid #8d9bb1; border-radius: 8px; font: inherit; }
+footer { max-width: 900px; margin: 2rem auto; padding: 0 1rem 2rem; color: #53627a; font-size: .9rem; }
+@media (max-width: 600px) { .site-header { align-items: flex-start; flex-direction: column; } }

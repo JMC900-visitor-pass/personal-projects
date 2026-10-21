@@ -1,0 +1,1122 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYBERMON // netrunner shell</title>
+<style>
+  :root{
+    --bg:#05070f; --fg:#7fdbe8; --dim:#2f5a66; --accent:#ff4fd8;
+    --good:#4dffa6; --warn:#ffc14d; --bad:#ff5470;
+  }
+  body[data-theme="matrix"]{--bg:#000700;--fg:#33ff66;--dim:#0f5c26;--accent:#a6ff4d;--good:#33ff66;--warn:#d4ff4d;--bad:#ff5c5c;}
+  body[data-theme="amber"]{--bg:#120c02;--fg:#ffb638;--dim:#6b4a10;--accent:#ffe08a;--good:#ffd166;--warn:#ffb638;--bad:#ff6b35;}
+  body[data-theme="ice"]{--bg:#040a12;--fg:#a8d8ff;--dim:#2b5170;--accent:#5ce1ff;--good:#7dffd4;--warn:#ffd98a;--bad:#ff7a90;}
+  body[data-theme="vapor"]{--bg:#10061a;--fg:#f5a3ff;--dim:#5a2a6b;--accent:#66f0ff;--good:#9dff9d;--warn:#ffd36e;--bad:#ff5c8a;}
+  body[data-theme="mono"]{--bg:#0b0b0b;--fg:#dcdcdc;--dim:#555555;--accent:#ffffff;--good:#cfcfcf;--warn:#9a9a9a;--bad:#f2f2f2;}
+
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:var(--font, ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace);
+    font-size:var(--size,14px); line-height:1.4;
+  }
+  body.glow #app{text-shadow:0 0 5px currentColor}
+
+  #crt{position:fixed;inset:0;pointer-events:none;z-index:9}
+  body.scan #crt::before{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(to bottom,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);}
+  body.flicker #crt::after{content:"";position:absolute;inset:0;background:var(--fg);opacity:0;
+    animation:fl 5s infinite steps(1);}
+  @keyframes fl{0%,97%{opacity:0}97.5%{opacity:.035}98%{opacity:0}99%{opacity:.02}99.5%{opacity:0}}
+
+  /* ── three-pane shell ── */
+  #app{
+    display:grid; height:100dvh;
+    grid-template-columns:minmax(0,1fr) var(--sidew,290px);
+    grid-template-rows:minmax(0,1fr) var(--conh,36%);
+  }
+  #stagepane{grid-area:1/1/2/2;border-right:1px solid var(--dim);overflow:auto;padding:10px 12px;min-width:0}
+  #sidepane {grid-area:1/2/2/3;overflow:auto;padding:10px 12px;min-width:0}
+  #conpane  {grid-area:2/1/3/3;border-top:1px solid var(--dim);display:flex;flex-direction:column;min-height:0}
+  #console  {flex:1 1 auto;overflow-y:auto;padding:8px 12px 0;-webkit-overflow-scrolling:touch}
+
+  body.stack #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
+  body.stack #stagepane{grid-area:1/1/2/2;border-right:0;border-bottom:1px solid var(--dim)}
+  body.stack #sidepane {grid-area:2/1/3/2;border-bottom:1px solid var(--dim)}
+  body.stack #conpane  {grid-area:3/1/4/2;min-height:40dvh}
+
+  .ln{white-space:pre-wrap;word-break:break-word;margin:0}
+  pre{white-space:pre;margin:0;overflow-x:auto}
+  pre.blk{margin:2px 0}
+  .dim{color:var(--dim)} .acc{color:var(--accent)} .good{color:var(--good)}
+  .warn{color:var(--warn)} .bad{color:var(--bad)}
+  .in{display:flex;align-items:baseline;padding:4px 12px 12px;white-space:pre-wrap;
+      border-top:1px solid var(--dim);margin-top:6px;flex:0 0 auto}
+  .in .p{color:var(--accent)}
+  #cur{display:inline-block;width:.62em;height:1.05em;vertical-align:text-bottom;
+       background:var(--fg);animation:bl 1.05s steps(1) infinite;flex:0 0 auto}
+  @keyframes bl{50%{opacity:0}}
+  #real{position:absolute;left:-9999px;opacity:0;width:1px;height:1px}
+  @media (prefers-reduced-motion:reduce){#cur{animation:none}body.flicker #crt::after{animation:none}}
+</style>
+
+<div id="crt"></div>
+<div id="app">
+  <div id="stagepane"><pre id="stage"></pre></div>
+  <div id="sidepane"><pre id="side"></pre></div>
+  <div id="conpane">
+    <div id="console"><div id="log"></div></div>
+    <div class="in"><span class="p" id="pmt">&gt;</span>&nbsp;<span id="mirror"></span><span id="cur"></span></div>
+  </div>
+</div>
+<input id="real" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const CONSOLE=$("#console"), LOG=$("#log"), STAGE=$("#stage"), SIDE=$("#side"),
+      MIRROR=$("#mirror"), REAL=$("#real"), PMT=$("#pmt"),
+      INLINE=document.querySelector(".in");
+
+/* ─────────────────────────── terminal core ─────────────────────────── */
+
+const FONTS = [
+  'ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace',
+  '"Courier New",Courier,monospace',
+  '"Lucida Console","DejaVu Sans Mono",monospace',
+  'Monaco,"Andale Mono",monospace'
+];
+const SPEEDS = {instant:0, fast:4, normal:11, slow:24};
+
+const CFG = {theme:"neondeck", scanlines:true, glow:true, flicker:true, speed:"fast",
+             font:0, size:14, layout:"auto", sidew:290, conh:36};
+
+function applyCfg(){
+  document.body.dataset.theme = CFG.theme;
+  document.body.classList.toggle("scan", CFG.scanlines);
+  document.body.classList.toggle("glow", CFG.glow);
+  document.body.classList.toggle("flicker", CFG.flicker);
+  document.body.style.setProperty("--font", FONTS[CFG.font] || FONTS[0]);
+  document.body.style.setProperty("--size", CFG.size + "px");
+  document.body.style.setProperty("--sidew", CFG.sidew + "px");
+  document.body.style.setProperty("--conh", CFG.conh + "%");
+  const stacked = CFG.layout === "stack" || (CFG.layout === "auto" && window.innerWidth < 860);
+  document.body.classList.toggle("stack", stacked);
+}
+window.addEventListener("resize", () => { if (CFG.layout === "auto") applyCfg(); });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const scroll = () => { CONSOLE.scrollTop = CONSOLE.scrollHeight; };
+
+function line(text="", cls=""){
+  const p = document.createElement("p");
+  p.className = "ln" + (cls ? " " + cls : "");
+  p.textContent = text;
+  LOG.appendChild(p); scroll(); return p;
+}
+function block(text, cls=""){
+  const p = document.createElement("pre");
+  p.className = "blk" + (cls ? " " + cls : "");
+  p.textContent = text;
+  LOG.appendChild(p); scroll(); return p;
+}
+async function type(text="", cls=""){
+  const ms = SPEEDS[CFG.speed];
+  if (ms === 0) { line(text, cls); return; }
+  const p = line("", cls);
+  for (let i = 0; i < text.length; i++){
+    p.textContent += text[i];
+    if (i % 3 === 0) { scroll(); await sleep(ms * 3); }
+  }
+  scroll();
+}
+async function rule(ch="-"){ line(ch.repeat(38), "dim"); }
+
+/* input */
+let pending = null, buffer = "", history = [], hIdx = 0;
+function drawInput(){ MIRROR.textContent = buffer; scroll(); }
+function showInput(p){ PMT.textContent = p; INLINE.style.display = "flex"; buffer = ""; drawInput(); REAL.focus(); }
+function hideInput(){ INLINE.style.display = "none"; }
+
+function ask(promptStr = ">"){
+  return new Promise(res => { pending = res; showInput(promptStr); });
+}
+REAL.addEventListener("input", () => { buffer = REAL.value; drawInput(); });
+REAL.addEventListener("keydown", e => {
+  if (e.key === "Enter"){
+    e.preventDefault();
+    const val = buffer;
+    hideInput();
+    line(PMT.textContent + " " + val);
+    if (val.trim()) { history.push(val); hIdx = history.length; }
+    REAL.value = ""; buffer = "";
+    const r = pending; pending = null;
+    if (r) r(val);
+  } else if (e.key === "ArrowUp"){
+    e.preventDefault();
+    if (hIdx > 0){ hIdx--; REAL.value = history[hIdx]; buffer = REAL.value; drawInput(); }
+  } else if (e.key === "ArrowDown"){
+    e.preventDefault();
+    if (hIdx < history.length - 1){ hIdx++; REAL.value = history[hIdx]; } else { hIdx = history.length; REAL.value = ""; }
+    buffer = REAL.value; drawInput();
+  }
+});
+document.addEventListener("click", () => REAL.focus());
+document.addEventListener("keydown", () => { if (document.activeElement !== REAL) REAL.focus(); });
+
+/* ─────────────────────────── ascii widgets ─────────────────────────── */
+
+const W = 42;    // stage panel width
+const SW = 28;   // sidebar panel width
+const pad = (s, n) => (s + " ".repeat(n)).slice(0, n);
+const padl = (s, n) => (" ".repeat(n) + s).slice(-n);
+
+function barStr(cur, max, cells = 16){
+  const r = max > 0 ? Math.max(0, Math.min(1, cur / max)) : 0;
+  const f = cur > 0 ? Math.max(1, Math.round(cells * r)) : 0;
+  return "[" + "#".repeat(f) + ".".repeat(cells - f) + "]";
+}
+function boxTop(label, w = W){
+  const max = w - 8;
+  if (label.length > max) label = label.slice(0, max);
+  const t = "+--[ " + label + " ]";
+  return t + "-".repeat(Math.max(0, w - 1 - t.length)) + "+";
+}
+function boxRow(s, w = W){ return "| " + pad(s, w - 4) + " |"; }
+function boxBot(w = W){ return "+" + "-".repeat(w - 2) + "+"; }
+
+function unitPanel(u, tag){
+  const head = `${u.name} L${u.lvl} ${u.type}`;
+  const st = u.down ? "OFFLINE" : `${u.hp}/${u.maxhp}`;
+  return [
+    boxTop(tag + " " + head),
+    boxRow("INTEG " + barStr(u.hp, u.maxhp) + padl(st, W - 28)),
+    boxRow(`ATK ${padl(String(u.atk),3)}   DEF ${padl(String(u.def),3)}   SPD ${padl(String(u.spd),3)}`),
+    boxBot()
+  ].join("\n");
+}
+
+const GLYPH = "!@#$%^&*<>/\\|~=+?";
+function scramble(txt, amt){
+  return txt.split("").map(c => (c !== "\n" && c !== " " && Math.random() < amt)
+    ? GLYPH[Math.floor(Math.random() * GLYPH.length)] : c).join("");
+}
+
+/* ── LEFT PANE: title card, location card, or the live battle ── */
+const LOGO = [
+  " ___ _  _ ___  ___ ___ __  __  ___  _  _",
+  "/ __| || | _ )| __| _ \\  \\/  |/ _ \\| \\| |",
+  "| (__| .` | _ \\| _||   / |\\/| | (_) | .` |",
+  "\\___|_|\\_|___/|___|_|_\\_|  |_|\\___/|_|\\_|",
+  "       catch :: compile :: crash"
+].join("\n");
+
+let stageState = null, stageNote = null;
+
+function paintStage(){
+  if (stageState){
+    const {foe, ally} = stageState;
+    STAGE.textContent =
+      unitPanel(foe, "FOE") + "\n" +
+      padl(">>>>", Math.floor(W / 2) + 2) + "\n" +
+      unitPanel(ally, "YOU");
+    return;
+  }
+  if (stageNote){
+    STAGE.textContent = [
+      boxTop(stageNote.title),
+      ...stageNote.rows.map(r => boxRow(r)),
+      boxBot()
+    ].join("\n");
+    return;
+  }
+  const alive = teamAlive().length;
+  STAGE.textContent = [
+    LOGO, "",
+    boxTop("STANDBY"),
+    boxRow("no active engagement"),
+    boxRow(`roster ${alive}/${P.team.length} online   vault ${P.vault.length}`),
+    boxRow(`credits ${P.credits}`),
+    boxRow(`sweeps ${P.sweeps}   raids ${P.raids}   caught ${P.captured}`),
+    boxBot()
+  ].join("\n");
+}
+function noteStage(title, rows){ stageNote = {title, rows}; paintStage(); }
+function clearNote(){ stageNote = null; paintStage(); }
+function openStage(foe, ally){ stageState = {foe, ally}; paintStage(); paintSide(); }
+function closeStage(){ stageState = null; paintStage(); paintSide(); }
+
+async function glitchStage(dur = 260){
+  if (!stageState) return;
+  const base = STAGE.textContent;
+  const steps = Math.max(1, Math.round(dur / 55));
+  for (let i = 0; i < steps; i++){
+    STAGE.textContent = scramble(base, 0.22 - i * 0.03);
+    await sleep(55);
+  }
+  STAGE.textContent = base;
+}
+
+/* ── RIGHT PANE: live roster ── */
+function paintSide(){
+  const r = [];
+  r.push(boxTop("RUNNER", SW));
+  r.push(boxRow(pad(P.handle, 13) + padl(P.credits + " cr", 11), SW));
+  r.push(boxRow(`sw ${P.sweeps}  rd ${P.raids}  cap ${P.captured}`, SW));
+  r.push(boxTop("ROSTER", SW));
+  if (!P.team.length) r.push(boxRow("(empty)", SW));
+  P.team.forEach((u, i) => {
+    const cur = (stageState && stageState.ally && stageState.ally.uid === u.uid) ? ">" : " ";
+    r.push(boxRow(`${cur}${i + 1} ${pad(u.name, 9)} L${padl(String(u.lvl), 2)} ${pad(u.type, 5)}`, SW));
+    r.push(boxRow(`   ${barStr(u.hp, u.maxhp, 10)} ${padl(u.down ? "OFFLINE" : u.hp + "/" + u.maxhp, 8)}`, SW));
+  });
+  if (P.vault.length) r.push(boxRow(`vault: ${P.vault.length} stored`, SW));
+  r.push(boxTop("ORDERS", SW));
+  r.push(boxRow("sweep   raid    team", SW));
+  r.push(boxRow("inv     market  rest", SW));
+  r.push(boxRow("codex   log     help", SW));
+  r.push(boxBot(SW));
+  SIDE.textContent = r.join("\n");
+}
+
+/* animate an integrity drop/gain cell by cell */
+async function animHp(unit, target){
+  target = Math.max(0, Math.min(unit.maxhp, Math.round(target)));
+  const step = target < unit.hp ? -1 : 1;
+  const dist = Math.abs(target - unit.hp);
+  if (dist === 0) return;
+  const tick = Math.max(8, Math.min(45, Math.round(420 / dist)));
+  while (unit.hp !== target){
+    unit.hp += step;
+    if (Math.abs(unit.hp - target) % 2 === 0 || unit.hp === target){ paintStage(); paintSide(); await sleep(tick); }
+  }
+  unit.down = unit.hp <= 0;
+  paintStage(); paintSide();
+}
+
+/* ─────────────────────────── game data ─────────────────────────── */
+
+/* type cycle: PYRO > IRON > VOLT > CRYO > VIRUS > PYRO. PHASE sits outside it. */
+const BEATS = {PYRO:"IRON", IRON:"VOLT", VOLT:"CRYO", CRYO:"VIRUS", VIRUS:"PYRO"};
+function typeMult(a, d){
+  if (BEATS[a] === d) return 1.5;
+  if (BEATS[d] === a) return 0.66;
+  return 1;
+}
+function effLabel(m){ return m > 1 ? "  <BREACH x1.5>" : m < 1 ? "  <deflected>" : ""; }
+
+const SPECIES = [
+  {id:"EMBRIX",  type:"PYRO",  hp:32, atk:13, def:7,  spd:10, rarity:1, catch:1.0,
+   note:"Thermal daemon. Runs hot, dies fast."},
+  {id:"CRYOD",   type:"CRYO",  hp:40, atk:9,  def:12, spd:6,  rarity:1, catch:1.0,
+   note:"Coolant loop wearing a body."},
+  {id:"VOLTIK",  type:"VOLT",  hp:29, atk:12, def:6,  spd:14, rarity:1, catch:1.0,
+   note:"Pure interrupt. Strikes before you parse it."},
+  {id:"NULLMAW", type:"VIRUS", hp:26, atk:16, def:5,  spd:12, rarity:2, catch:0.8,
+   note:"Eats allocation tables. Still hungry."},
+  {id:"BASTIN",  type:"IRON",  hp:48, atk:7,  def:16, spd:4,  rarity:1, catch:0.9,
+   note:"An old firewall that refused deprecation."},
+  {id:"WISPRA",  type:"PHASE", hp:24, atk:12, def:5,  spd:17, rarity:2, catch:0.8,
+   note:"Exists between packets. Hard to pin."},
+  {id:"OBLIVEX", type:"VIRUS", hp:38, atk:18, def:9,  spd:13, rarity:3, catch:0.5,
+   note:"Rogue kernel. Logged as a deleted process."},
+  {id:"AURELIX", type:"VOLT",  hp:36, atk:15, def:11, spd:15, rarity:3, catch:0.5,
+   note:"Self-rewriting. Nobody knows the original build."}
+];
+const byId = id => SPECIES.find(s => s.id === id);
+
+const ITEMS = {
+  "NANOPATCH":  {price:60,  battle:true,  desc:"Restore 25 integrity to the linked unit."},
+  "MEGAPATCH":  {price:150, battle:true,  desc:"Restore 70 integrity to the linked unit."},
+  "REPAIR.KIT": {price:220, battle:false, desc:"Bring one offline unit back at half integrity."},
+  "BIND.EXE":   {price:70,  battle:false, desc:"Capture routine. Baseline lock strength."},
+  "LOCK.EXE":   {price:180, battle:false, desc:"Capture routine. 1.6x lock strength."},
+  "ROOT.EXE":   {price:400, battle:false, desc:"Capture routine. 2.4x lock strength."},
+  "OVERCLOCK":  {price:130, battle:true,  desc:"+40% attack for the rest of this fight."},
+  "XP.CHIP":    {price:200, battle:false, desc:"Grant 60 XP to a unit of your choice."},
+  "DATA.SHARD": {price:0,   battle:false, desc:"Salvage. Sells for 45 credits."}
+};
+const CAPTURE_DEVICES = {"BIND.EXE":1.0, "LOCK.EXE":1.6, "ROOT.EXE":2.4};
+
+const SECTORS = ["SECTOR 07 / dead mall net","SECTOR 12 / transit backbone","SECTOR 19 / hydro control",
+                 "SECTOR 23 / orbital relay","SECTOR 31 / abandoned exchange"];
+const SERVERS = ["BLACKSITE-A","COLDVAULT","THE STACK","MERIDIAN CORE","GREY ARCHIVE"];
+
+/* ─────────────────────────── model ─────────────────────────── */
+
+let UID = 0;
+class Unit{
+  constructor(specId, lvl, name){
+    const s = byId(specId);
+    this.uid = ++UID;
+    this.spec = specId; this.type = s.type;
+    this.name = name || specId;
+    this.lvl = lvl; this.xp = 0;
+    this.applyStats();
+    this.hp = this.maxhp; this.down = false;
+    this.atkBuff = 1;
+  }
+  applyStats(){
+    const s = byId(this.spec), L = this.lvl - 1;
+    this.maxhp = s.hp + L * 5;
+    this.atk = s.atk + Math.round(L * 1.5);
+    this.def = s.def + Math.round(L * 1.2);
+    this.spd = s.spd + Math.round(L * 1.0);
+  }
+  get xpNeed(){ return 24 + this.lvl * 14; }
+  /* FIX: loops through every level the award covers, not just one */
+  gainXp(n){
+    this.xp += n;
+    const gained = [];
+    while (this.lvl < 25 && this.xp >= this.xpNeed){
+      this.xp -= this.xpNeed;
+      this.lvl++;
+      const before = this.maxhp;
+      this.applyStats();
+      this.hp = Math.min(this.maxhp, this.hp + (this.maxhp - before));
+      gained.push(this.lvl);
+    }
+    if (this.lvl >= 25) this.xp = 0;
+    return gained;
+  }
+  toJSON(){ return {s:this.spec, l:this.lvl, n:this.name, h:this.hp, x:this.xp, d:this.down}; }
+  static fromJSON(o){
+    const u = new Unit(o.s, o.l, o.n);
+    u.hp = o.h; u.xp = o.x; u.down = !!o.d;
+    return u;
+  }
+}
+
+const P = {
+  handle:"runner",
+  team:[], vault:[],
+  items:{}, credits:0,
+  sweeps:0, raids:0, captured:0, lost:0, wins:0, losses:0,
+  seen:{}, owned:{},
+  questsDone:{}
+};
+const teamAlive = () => P.team.filter(u => !u.down);
+function addItem(n, q = 1){ P.items[n] = (P.items[n] || 0) + q; }
+function takeItem(n){ if (!P.items[n]) return false; P.items[n]--; if (!P.items[n]) delete P.items[n]; return true; }
+function haveDevices(){ return Object.keys(CAPTURE_DEVICES).filter(d => P.items[d] > 0); }
+
+function recruit(u){
+  u.name = u.spec;
+  P.owned[u.spec] = true;
+  if (P.team.length < 6){ P.team.push(u); return "team"; }
+  P.vault.push(u); return "vault";
+}
+
+/* ─────────────────────────── quests ─────────────────────────── */
+
+const QUESTS = [
+  {id:"q1", txt:"Run 3 open-net sweeps",        done:() => P.sweeps >= 3,   prog:() => `${Math.min(P.sweeps,3)}/3`,   cr:120, item:"NANOPATCH"},
+  {id:"q2", txt:"Capture 3 constructs",          done:() => P.captured >= 3, prog:() => `${Math.min(P.captured,3)}/3`, cr:180, item:"LOCK.EXE"},
+  {id:"q3", txt:"Clear 2 server raids",          done:() => P.raids >= 2,    prog:() => `${Math.min(P.raids,2)}/2`,    cr:250, item:"REPAIR.KIT"},
+  {id:"q4", txt:"Win 15 engagements",            done:() => P.wins >= 15,    prog:() => `${Math.min(P.wins,15)}/15`,   cr:300, item:"MEGAPATCH"},
+  {id:"q5", txt:"Index 6 species in the codex",  done:() => Object.keys(P.seen).length >= 6, prog:() => `${Math.min(Object.keys(P.seen).length,6)}/6`, cr:220, item:"ROOT.EXE"},
+  {id:"q6", txt:"Raise any unit to L10",         done:() => [...P.team,...P.vault].some(u => u.lvl >= 10), prog:() => `${Math.max(0,...[...P.team,...P.vault].map(u=>u.lvl),0)}/10`, cr:400, item:"XP.CHIP"}
+];
+async function checkQuests(){
+  for (const q of QUESTS){
+    if (!P.questsDone[q.id] && q.done()){
+      P.questsDone[q.id] = true;
+      P.credits += q.cr; addItem(q.item);
+      await type(`  * CONTRACT CLEARED: ${q.txt}`, "good");
+      await type(`    payout ${q.cr} cr + 1x ${q.item}`, "dim");
+    }
+  }
+}
+
+/* ─────────────────────────── combat ─────────────────────────── */
+
+function damageRoll(a, d){
+  const mult = typeMult(a.type, d.type);
+  let raw = a.atk * a.atkBuff * 0.95 - d.def * 0.55;
+  raw = Math.max(2, raw);
+  const critRate = Math.max(0.05, Math.min(0.30, 0.10 + (a.spd - d.spd) * 0.005));
+  const crit = Math.random() < critRate;
+  let dmg = raw * mult * (crit ? 1.8 : 1) * (0.9 + Math.random() * 0.2);
+  return {dmg: Math.max(1, Math.round(dmg)), crit, mult};
+}
+function captureOdds(foe, devMult){
+  const missing = 1 - foe.hp / foe.maxhp;
+  const spec = byId(foe.spec);
+  let c = (0.18 + missing * 0.62) * devMult * spec.catch - foe.lvl * 0.015;
+  return Math.max(0.03, Math.min(0.95, c));
+}
+
+/* FIX: menu is built from what is actually legal, and the parser only
+   accepts keys that were offered. Nothing silently eats a turn. */
+function buildActions(ctx){
+  const acts = [];
+  acts.push({k:"1", alias:["a","atk","attack"], label:"1 attack", id:"attack"});
+  acts.push({k:"2", alias:["g","grd","guard"], label:"2 guard", id:"guard"});
+  const usable = Object.keys(P.items).filter(n => ITEMS[n].battle && P.items[n] > 0);
+  if (usable.length) acts.push({k:"3", alias:["i","item"], label:"3 item", id:"item"});
+  if (ctx.canCapture && haveDevices().length) acts.push({k:"4", alias:["c","cap"], label:"4 capture", id:"capture"});
+  if (teamAlive().length > 1) acts.push({k:"5", alias:["s","swap"], label:"5 swap", id:"swap"});
+  if (ctx.canFlee) acts.push({k:"6", alias:["e","esc","run"], label:"6 disconnect", id:"flee"});
+  return acts;
+}
+async function chooseAction(ctx){
+  const acts = buildActions(ctx);
+  line("  " + acts.map(a => a.label).join("   "), "dim");
+  for(;;){
+    const raw = (await ask("battle>")).trim().toLowerCase();
+    const hit = acts.find(a => a.k === raw || a.alias.includes(raw));
+    if (hit) return hit.id;
+    if (raw === "?" || raw === "help"){ line("  " + acts.map(a => a.label).join("   "), "dim"); continue; }
+    line("  not a valid order here: " + (raw || "(empty)"), "warn");
+  }
+}
+
+/* FIX: numbering is generated fresh and mapped back explicitly, so the
+   label you see is always the number you type. */
+async function pickFrom(items, label, renderer, allowCancel = true){
+  if (!items.length) return null;
+  line("  " + label, "acc");
+  items.forEach((it, i) => line(`   [${i + 1}] ${renderer(it)}`));
+  if (allowCancel) line("   [0] cancel", "dim");
+  for(;;){
+    const raw = (await ask("select>")).trim();
+    if (allowCancel && (raw === "0" || raw.toLowerCase() === "cancel")) return null;
+    const n = parseInt(raw, 10);
+    if (Number.isInteger(n) && n >= 1 && n <= items.length) return items[n - 1];
+    line("  pick 1-" + items.length + (allowCancel ? " or 0 to cancel" : ""), "warn");
+  }
+}
+
+async function pickFighter(){
+  const alive = teamAlive();
+  if (!alive.length) return null;
+  if (alive.length === 1) return alive[0];
+  return await pickFrom(alive, "link which unit?",
+    u => `${pad(u.name, 9)} L${padl(String(u.lvl),2)} ${pad(u.type,5)} ${barStr(u.hp,u.maxhp,10)} ${u.hp}/${u.maxhp}`, false);
+}
+
+/* returns: win | lose | captured | fled | wipe */
+async function battle(foe, ally, opts){
+  P.seen[foe.spec] = true;
+  openStage(foe, ally);
+  await type(`  hostile process detected: ${foe.name} L${foe.lvl} [${foe.type}]`, "bad");
+  await type(`  linking ${ally.name}...`, "dim");
+
+  let allyGuard = false, foeGuard = false, turn = 0;
+  ally.atkBuff = 1; foe.atkBuff = 1;
+
+  for(;;){
+    turn++;
+    line("");
+    line(`  -- cycle ${turn} --`, "dim");
+
+    /* FIX: order is recomputed each cycle from live speed only, no stale flags */
+    const allyFirst = ally.spd === foe.spd ? Math.random() < 0.5 : ally.spd > foe.spd;
+    const order = allyFirst ? ["ally", "foe"] : ["foe", "ally"];
+
+    for (const who of order){
+      if (ally.down || foe.down) break;
+
+      if (who === "ally"){
+        const act = await chooseAction(opts);
+
+        if (act === "attack"){
+          allyGuard = false;
+          const r = damageRoll(ally, foe);
+          let d = r.dmg; if (foeGuard) d = Math.max(1, Math.round(d / 2));
+          await type(`  ${ally.name} executes for ${d}${r.crit ? "  <<CRIT>>" : ""}${effLabel(r.mult)}`, r.crit ? "acc" : "");
+          if (r.crit) await glitchStage();
+          await animHp(foe, foe.hp - d);
+          foeGuard = false;
+
+        } else if (act === "guard"){
+          allyGuard = true;
+          await type(`  ${ally.name} raises a shield subroutine.`, "dim");
+
+        } else if (act === "item"){
+          const usable = Object.keys(P.items).filter(n => ITEMS[n].battle && P.items[n] > 0);
+          const pickI = await pickFrom(usable, "deploy which item?", n => `${pad(n,12)} x${P.items[n]}  ${ITEMS[n].desc}`);
+          if (!pickI){ turn--; continue; }        /* cancelling costs nothing */
+          /* FIX: item is only consumed if it actually did something */
+          let used = false;
+          if (pickI === "NANOPATCH" || pickI === "MEGAPATCH"){
+            const amt = pickI === "NANOPATCH" ? 25 : 70;
+            if (ally.hp >= ally.maxhp){ line("  integrity already at maximum. held.", "warn"); }
+            else { takeItem(pickI); used = true; await type(`  ${pickI} applied. +${Math.min(amt, ally.maxhp-ally.hp)} integrity`, "good"); await animHp(ally, ally.hp + amt); }
+          } else if (pickI === "OVERCLOCK"){
+            if (ally.atkBuff > 1){ line("  already overclocked. held.", "warn"); }
+            else { takeItem(pickI); used = true; ally.atkBuff = 1.4; await type("  OVERCLOCK engaged. attack +40% this fight.", "acc"); }
+          }
+          if (!used){ turn--; continue; }
+
+        } else if (act === "capture"){
+          const devs = haveDevices();
+          const dev = devs.length === 1 ? devs[0]
+            : await pickFrom(devs, "which routine?", d => `${pad(d,10)} x${P.items[d]}  lock x${CAPTURE_DEVICES[d]}`);
+          if (!dev){ turn--; continue; }
+          takeItem(dev);
+          const odds = captureOdds(foe, CAPTURE_DEVICES[dev]);
+          await type(`  deploying ${dev}  (est. ${Math.round(odds*100)}% lock)`, "acc");
+          for (let i = 1; i <= 3; i++){ await type(`  lock ${i}...`, "dim"); await glitchStage(140); }
+          if (Math.random() < odds){
+            await type(`  >>> ${foe.name} BOUND. ownership transferred.`, "good");
+            closeStage(); return "captured";
+          }
+          await type(`  lock failed. ${foe.name} tore free.`, "warn");
+
+        } else if (act === "swap"){
+          const others = teamAlive().filter(u => u.uid !== ally.uid);
+          const nu = await pickFrom(others, "link which unit instead?",
+            u => `${pad(u.name,9)} L${padl(String(u.lvl),2)} ${pad(u.type,5)} ${barStr(u.hp,u.maxhp,10)} ${u.hp}/${u.maxhp}`);
+          if (!nu){ turn--; continue; }
+          ally.atkBuff = 1;
+          ally = nu; ally.atkBuff = 1; allyGuard = false;
+          stageState.ally = ally; paintStage(); paintSide();
+          await type(`  link switched to ${ally.name}.`, "acc");
+
+        } else if (act === "flee"){
+          if (Math.random() < 0.62){
+            await type("  connection dropped. you're clear.", "good");
+            closeStage(); return "fled";
+          }
+          await type("  disconnect refused. it has your trace.", "warn");
+        }
+
+      } else {
+        /* hostile turn */
+        if (Math.random() < 0.22){
+          foeGuard = true;
+          await type(`  ${foe.name} hardens its shell.`, "dim");
+        } else {
+          foeGuard = false;
+          const r = damageRoll(foe, ally);
+          let d = r.dmg; if (allyGuard) d = Math.max(1, Math.round(d / 2));
+          await type(`  ${foe.name} strikes for ${d}${r.crit ? "  <<CRIT>>" : ""}${effLabel(r.mult)}`, "bad");
+          if (r.crit) await glitchStage();
+          await animHp(ally, ally.hp - d);
+          allyGuard = false;
+        }
+      }
+
+      if (foe.hp <= 0){
+        await type(`  ${foe.name} destabilised. process terminated.`, "good");
+        closeStage(); return "win";
+      }
+      if (ally.hp <= 0){
+        /* FIX: knockouts persist. the unit stays offline until repaired. */
+        ally.down = true;
+        await type(`  ${ally.name} has gone OFFLINE.`, "bad");
+        const rest = teamAlive();
+        if (!rest.length){ closeStage(); return "wipe"; }
+        const nu = await pickFighter();
+        if (!nu){ closeStage(); return "wipe"; }
+        ally = nu; ally.atkBuff = 1; allyGuard = false;
+        stageState.ally = ally; paintStage(); paintSide();
+        await type(`  emergency link: ${ally.name}.`, "acc");
+      }
+    }
+  }
+}
+
+async function awardWin(fighter, foe, bonus = 0){
+  P.wins++;
+  const xp = 14 + foe.lvl * 6 + bonus;
+  const cr = 18 + foe.lvl * 4 + bonus;
+  P.credits += cr;
+  await type(`  +${xp} xp  +${cr} cr`, "dim");
+  const lv = fighter.gainXp(xp);
+  for (const l of lv) await type(`  ^ ${fighter.name} recompiled at L${l}`, "acc");
+}
+
+/* ─────────────────────────── runs ─────────────────────────── */
+
+function wildUnit(){
+  const tier = Math.min(3, 1 + Math.floor((P.sweeps + P.raids) / 4));
+  const pool = SPECIES.filter(s => s.rarity <= tier);
+  const s = pool[Math.floor(Math.random() * pool.length)];
+  const lvl = Math.max(1, 1 + Math.floor(Math.random() * (2 + P.sweeps)));
+  return new Unit(s.id, Math.min(lvl, 18));
+}
+/* FIX: boss level is set at construction, so every stat derives from it */
+function raidUnit(depth, boss){
+  const tier = boss ? 3 : Math.min(3, 1 + Math.floor(P.raids / 3));
+  const pool = SPECIES.filter(s => s.rarity <= tier);
+  const s = pool[Math.floor(Math.random() * pool.length)];
+  const lvl = Math.max(2, depth + P.raids * 2 + (boss ? 4 : 0) + Math.floor(Math.random() * 3));
+  return new Unit(s.id, Math.min(lvl, 22), boss ? s.id + "-PRIME" : null);
+}
+
+async function cmdSweep(){
+  if (!teamAlive().length){ line("  every unit is offline. run `rest` first.", "bad"); return; }
+  const loc = SECTORS[Math.floor(Math.random() * SECTORS.length)];
+  const n = 1 + Math.floor(Math.random() * 3);
+  noteStage("OPEN-NET SWEEP", [loc, "", `contacts inbound: ${n}`, "capture routines permitted"]);
+  line(""); await rule("=");
+  await type("  OPEN-NET SWEEP // " + loc, "acc");
+  await rule("=");
+  for (let i = 1; i <= n; i++){
+    line(""); line(`  contact ${i} of ${n}`, "dim");
+    const foe = wildUnit();
+    const ally = await pickFighter();
+    if (!ally){ await type("  no units left online. pulling out.", "bad"); break; }
+    const res = await battle(foe, ally, {canCapture:true, canFlee:true});
+    if (res === "captured"){
+      P.captured++;
+      const where = recruit(foe);
+      await type(`  ${foe.name} filed to ${where}.`, "good");
+    } else if (res === "win"){
+      await awardWin(ally, foe);
+      if (Math.random() < 0.45){ const it = "DATA.SHARD"; addItem(it); await type(`  salvage recovered: ${it}`, "warn"); }
+    } else if (res === "wipe"){
+      P.losses++; P.lost++;
+      await type("  full team offline. auto-extraction engaged.", "bad");
+      break;
+    } else if (res === "fled"){
+      await type("  sweep aborted for this contact.", "dim");
+    }
+  }
+  P.sweeps++; clearNote();
+  line(""); await type(`  sweep logged. total sweeps: ${P.sweeps}`, "good");
+  await checkQuests();
+}
+
+async function cmdRaid(){
+  if (!teamAlive().length){ line("  every unit is offline. run `rest` first.", "bad"); return; }
+  const srv = SERVERS[Math.floor(Math.random() * SERVERS.length)];
+  noteStage("SERVER RAID", [srv, "", "no capture. no disconnect.", "warden process at the last node"]);
+  line(""); await rule("=");
+  await type("  SERVER RAID // " + srv, "acc");
+  await type("  no capture routines. no disconnect. clear it or crash.", "dim");
+  await rule("=");
+  const nodes = 3 + Math.floor(Math.random() * 2);
+  let cleared = true;
+  for (let d = 1; d <= nodes; d++){
+    const boss = d === nodes;
+    line(""); line(`  node ${d} of ${nodes}${boss ? "   :: WARDEN PROCESS ::" : ""}`, boss ? "bad" : "dim");
+    if (!boss && Math.random() < 0.5){
+      const names = Object.keys(ITEMS).filter(n => n !== "DATA.SHARD");
+      const it = names[Math.floor(Math.random() * names.length)];
+      addItem(it); await type(`  cache cracked: 1x ${it}`, "warn");
+    }
+    const foe = raidUnit(d, boss);
+    const ally = await pickFighter();
+    if (!ally){ cleared = false; break; }
+    const res = await battle(foe, ally, {canCapture:false, canFlee:false});
+    if (res === "win"){
+      await awardWin(ally, foe, boss ? 40 : 0);
+      if (boss){
+        P.credits += 200; addItem("MEGAPATCH"); addItem("DATA.SHARD", 2);
+        await type("  warden dumped: 200 cr, 1x MEGAPATCH, 2x DATA.SHARD", "good");
+      }
+    } else if (res === "wipe"){
+      P.losses++; P.lost++; cleared = false;
+      await type("  team wiped. dumped out of the stack with nothing.", "bad");
+      break;
+    }
+  }
+  clearNote();
+  if (cleared){ P.raids++; await type(`  raid cleared. total raids: ${P.raids}`, "good"); }
+  else await type("  raid failed.", "bad");
+  await checkQuests();
+}
+
+/* ─────────────────────────── hub commands ─────────────────────────── */
+
+function hud(){ paintSide(); paintStage(); }
+
+function showTeam(){
+  if (!P.team.length){ line("  roster empty.", "warn"); return; }
+  line("");
+  block(P.team.map((u, i) =>
+    ` [${i + 1}] ${pad(u.name, 10)} L${padl(String(u.lvl), 2)} ${pad(u.type, 5)} ` +
+    `${barStr(u.hp, u.maxhp, 12)} ${padl(u.down ? "OFFLINE" : u.hp + "/" + u.maxhp, 8)}\n` +
+    `     ATK ${padl(String(u.atk),3)}  DEF ${padl(String(u.def),3)}  SPD ${padl(String(u.spd),3)}  xp ${u.xp}/${u.xpNeed}`
+  ).join("\n"));
+  if (P.vault.length){
+    line("");
+    line("  VAULT", "dim");
+    block(P.vault.map((u, i) => ` [v${i + 1}] ${pad(u.name,10)} L${padl(String(u.lvl),2)} ${pad(u.type,5)} ${u.down ? "OFFLINE" : u.hp + "/" + u.maxhp}`).join("\n"), "dim");
+  }
+}
+
+function showInv(){
+  const keys = Object.keys(P.items).filter(k => P.items[k] > 0);
+  line("");
+  if (!keys.length){ line("  inventory empty.", "warn"); return; }
+  block(keys.map((k, i) => ` [${i + 1}] ${pad(k, 12)} x${padl(String(P.items[k]), 2)}  ${ITEMS[k].desc}`).join("\n"));
+  line("  `use <n>` to deploy outside combat.", "dim");
+}
+
+function showDex(){
+  line("");
+  block(SPECIES.map(s => {
+    const mark = P.owned[s.id] ? "*" : P.seen[s.id] ? "+" : "-";
+    const nm = (P.seen[s.id] || P.owned[s.id]) ? s.id : "?".repeat(s.id.length);
+    return ` ${mark} ${pad(nm, 9)} ${pad(s.type, 6)} r${s.rarity}  ` +
+           ((P.seen[s.id] || P.owned[s.id]) ? s.note : "no signature on file");
+  }).join("\n"));
+  line("  * owned   + encountered   - unknown", "dim");
+}
+
+function showTypes(){
+  line("");
+  block([
+    "  PYRO  breaches  IRON",
+    "  IRON  breaches  VOLT",
+    "  VOLT  breaches  CRYO",
+    "  CRYO  breaches  VIRUS",
+    "  VIRUS breaches  PYRO",
+    "  PHASE sits outside the cycle: no bonus either way,",
+    "        it pays for that in raw speed.",
+    "",
+    "  breach x1.5   deflected x0.66"
+  ].join("\n"));
+}
+
+function showQuests(){
+  line("");
+  block(QUESTS.map(q => ` ${P.questsDone[q.id] ? "[x]" : "[ ]"} ${pad(q.txt, 30)} ${padl(q.prog(), 6)}`).join("\n"));
+  line("");
+  block([
+    `  sweeps ${P.sweeps}   raids ${P.raids}   wins ${P.wins}   losses ${P.losses}`,
+    `  captured ${P.captured}   units lost ${P.lost}   credits ${P.credits}`
+  ].join("\n"), "dim");
+}
+
+async function shop(){
+  const stock = Object.keys(ITEMS).filter(n => ITEMS[n].price > 0);
+  line(""); line("  BLACK MARKET NODE", "acc");
+  block(stock.map((n, i) => ` [${i + 1}] ${pad(n, 12)} ${padl(String(ITEMS[n].price), 4)} cr  ${ITEMS[n].desc}`).join("\n"));
+  const shards = P.items["DATA.SHARD"] || 0;
+  if (shards) line(`  [s] sell all DATA.SHARD x${shards} for ${shards * 45} cr`, "warn");
+  line(`  credits: ${P.credits}   [0] leave`, "dim");
+  for(;;){
+    const raw = (await ask("market>")).trim().toLowerCase();
+    if (raw === "0" || raw === "" || raw === "leave") return;
+    if (raw === "s" && shards){
+      P.credits += shards * 45; delete P.items["DATA.SHARD"];
+      await type(`  sold ${shards} shards.`, "good"); hud(); return;
+    }
+    const n = parseInt(raw, 10);
+    if (Number.isInteger(n) && n >= 1 && n <= stock.length){
+      const it = stock[n - 1];
+      if (P.credits < ITEMS[it].price){ line("  insufficient credits.", "bad"); continue; }
+      P.credits -= ITEMS[it].price; addItem(it);
+      await type(`  purchased 1x ${it}. balance ${P.credits} cr`, "good"); hud();
+    } else line("  pick a listing number, or 0 to leave.", "warn");
+  }
+}
+
+/* FIX: rest restores the vault too, not just the active six */
+async function rest(){
+  const all = [...P.team, ...P.vault];
+  if (!all.length){ line("  nothing to restore.", "warn"); return; }
+  await type("  routing to safehouse...", "dim");
+  for (const u of all){ u.hp = u.maxhp; u.down = false; u.atkBuff = 1; }
+  await type(`  ${all.length} unit(s) restored to full integrity.`, "good");
+}
+
+async function useItem(arg){
+  const keys = Object.keys(P.items).filter(k => P.items[k] > 0);
+  if (!keys.length){ line("  inventory empty.", "warn"); return; }
+  let it = null;
+  const n = parseInt(arg, 10);
+  if (Number.isInteger(n) && n >= 1 && n <= keys.length) it = keys[n - 1];
+  else it = await pickFrom(keys, "deploy which item?", k => `${pad(k,12)} x${P.items[k]}  ${ITEMS[k].desc}`);
+  if (!it) return;
+
+  if (it === "REPAIR.KIT"){
+    const offline = [...P.team, ...P.vault].filter(u => u.down);
+    if (!offline.length){ line("  no offline units. kit held.", "warn"); return; }
+    const u = await pickFrom(offline, "restore which unit?", x => `${pad(x.name,10)} L${x.lvl} ${x.type}`);
+    if (!u) return;
+    takeItem(it); u.down = false; u.hp = Math.max(1, Math.round(u.maxhp / 2));
+    await type(`  ${u.name} back online at ${u.hp}/${u.maxhp}.`, "good");
+
+  } else if (it === "NANOPATCH" || it === "MEGAPATCH"){
+    const amt = it === "NANOPATCH" ? 25 : 70;
+    const hurt = [...P.team, ...P.vault].filter(u => !u.down && u.hp < u.maxhp);
+    if (!hurt.length){ line("  no damaged units. patch held.", "warn"); return; }
+    const u = await pickFrom(hurt, "patch which unit?", x => `${pad(x.name,10)} ${barStr(x.hp,x.maxhp,10)} ${x.hp}/${x.maxhp}`);
+    if (!u) return;
+    takeItem(it); const before = u.hp; u.hp = Math.min(u.maxhp, u.hp + amt);
+    await type(`  +${u.hp - before} integrity to ${u.name}.`, "good");
+
+  } else if (it === "XP.CHIP"){
+    const pool = [...P.team, ...P.vault];
+    const u = await pickFrom(pool, "flash which unit?", x => `${pad(x.name,10)} L${x.lvl} xp ${x.xp}/${x.xpNeed}`);
+    if (!u) return;
+    takeItem(it); const lv = u.gainXp(60);
+    await type(`  60 xp written to ${u.name}.`, "good");
+    for (const l of lv) await type(`  ^ ${u.name} recompiled at L${l}`, "acc");
+
+  } else if (it === "DATA.SHARD"){
+    line("  salvage. sell it at the market node.", "warn");
+  } else {
+    /* capture routines and combat-only gear are never silently burned */
+    line(`  ${it} only functions ${ITEMS[it].battle ? "during an engagement" : "in combat, as a capture routine"}. held.`, "warn");
+  }
+}
+
+/* ── customisation ── */
+
+async function cmdTheme(arg){
+  const names = ["neondeck","matrix","amber","ice","vapor","mono"];
+  if (!arg){
+    line("  themes: " + names.join("  "), "dim");
+    line("  usage: theme amber", "dim"); return;
+  }
+  if (!names.includes(arg)){ line("  unknown theme: " + arg, "warn"); return; }
+  CFG.theme = arg; applyCfg(); saveCfg();
+  await type("  display profile -> " + arg, "good");
+}
+async function cmdSet(a, b){
+  const on = v => v === "on" || v === "1" || v === "true";
+  switch(a){
+    case "scanlines": CFG.scanlines = on(b); break;
+    case "glow":      CFG.glow = on(b); break;
+    case "flicker":   CFG.flicker = on(b); break;
+    case "speed":
+      if (!SPEEDS.hasOwnProperty(b)){ line("  speed: instant | fast | normal | slow", "warn"); return; }
+      CFG.speed = b; break;
+    case "font": {
+      const n = parseInt(b, 10);
+      if (!(n >= 1 && n <= FONTS.length)){ line("  font: 1-" + FONTS.length, "warn"); return; }
+      CFG.font = n - 1; break;
+    }
+    case "size": {
+      const n = parseInt(b, 10);
+      if (!(n >= 10 && n <= 24)){ line("  size: 10-24", "warn"); return; }
+      CFG.size = n; break;
+    }
+    case "layout":
+      if (!["panes","stack","auto"].includes(b)){ line("  layout: panes | stack | auto", "warn"); return; }
+      CFG.layout = b; break;
+    case "side": {
+      const n = parseInt(b, 10);
+      if (!(n >= 200 && n <= 480)){ line("  side: 200-480 (px)", "warn"); return; }
+      CFG.sidew = n; break;
+    }
+    case "log": {
+      const n = parseInt(b, 10);
+      if (!(n >= 20 && n <= 70)){ line("  log: 20-70 (% of height)", "warn"); return; }
+      CFG.conh = n; break;
+    }
+    default:
+      line("  set <scanlines|glow|flicker> on|off", "dim");
+      line("  set speed instant|fast|normal|slow", "dim");
+      line("  set font 1-4      set size 10-24", "dim");
+      line("  set layout panes|stack|auto", "dim");
+      line("  set side 200-480  set log 20-70", "dim");
+      return;
+  }
+  applyCfg(); saveCfg(); await type(`  ${a} -> ${b}`, "good");
+}
+function showCfg(){
+  line("");
+  block([
+    `  theme      ${CFG.theme}`,
+    `  scanlines  ${CFG.scanlines ? "on" : "off"}`,
+    `  glow       ${CFG.glow ? "on" : "off"}`,
+    `  flicker    ${CFG.flicker ? "on" : "off"}`,
+    `  speed      ${CFG.speed}`,
+    `  font       ${CFG.font + 1}`,
+    `  size       ${CFG.size}px`,
+    `  layout     ${CFG.layout}`,
+    `  side pane  ${CFG.sidew}px`,
+    `  log pane   ${CFG.conh}%`
+  ].join("\n"));
+}
+
+function renameUnit(args){
+  const n = parseInt(args[0], 10);
+  const nm = args.slice(1).join(" ").slice(0, 10);
+  if (!(n >= 1 && n <= P.team.length) || !nm){ line("  usage: rename <slot> <name>", "warn"); return; }
+  const old = P.team[n - 1].name;
+  P.team[n - 1].name = nm;
+  line(`  ${old} -> ${nm}`, "good");
+}
+function swapSlots(args){
+  const a = parseInt(args[0], 10), b = parseInt(args[1], 10);
+  if (!(a >= 1 && a <= P.team.length && b >= 1 && b <= P.team.length && a !== b)){
+    line("  usage: order <slot> <slot>", "warn"); return;
+  }
+  [P.team[a - 1], P.team[b - 1]] = [P.team[b - 1], P.team[a - 1]];
+  line(`  slots ${a} and ${b} exchanged.`, "good");
+}
+function store(arg){
+  const n = parseInt(arg, 10);
+  if (!(n >= 1 && n <= P.team.length)){ line("  usage: store <slot>", "warn"); return; }
+  if (P.team.length === 1){ line("  can't store your last unit.", "bad"); return; }
+  P.vault.push(P.team.splice(n - 1, 1)[0]);
+  line("  moved to vault.", "good"); hud();
+}
+function pull(arg){
+  const n = parseInt(arg, 10);
+  if (!(n >= 1 && n <= P.vault.length)){ line("  usage: pull <vault slot>", "warn"); return; }
+  if (P.team.length >= 6){ line("  roster full. store one first.", "bad"); return; }
+  P.team.push(P.vault.splice(n - 1, 1)[0]);
+  line("  moved to active roster.", "good"); hud();
+}
+
+/* ── persistence ── */
+
+async function saveCfg(){
+  try { await window.storage.set("cybermon:cfg", JSON.stringify(CFG)); } catch(e){}
+}
+async function loadCfg(){
+  try {
+    const r = await window.storage.get("cybermon:cfg");
+    if (r && r.value) Object.assign(CFG, JSON.parse(r.value));
+  } catch(e){}
+  applyCfg();
+}
+async function saveGame(){
+  const snap = {
+    handle:P.handle, team:P.team.map(u => u.toJSON()), vault:P.vault.map(u => u.toJSON()),
+    items:P.items, credits:P.credits, sweeps:P.sweeps, raids:P.raids, captured:P.captured,
+    lost:P.lost, wins:P.wins, losses:P.losses, seen:P.seen, owned:P.owned, questsDone:P.questsDone
+  };
+  try { await window.storage.set("cybermon:save", JSON.stringify(snap)); line("  state written.", "good"); }
+  catch(e){ line("  save failed: storage unavailable.", "bad"); }
+}
+async function loadGame(){
+  try {
+    const r = await window.storage.get("cybermon:save");
+    if (!r || !r.value){ line("  no saved state.", "warn"); return false; }
+    const s = JSON.parse(r.value);
+    P.handle = s.handle; P.items = s.items || {}; P.credits = s.credits || 0;
+    P.sweeps = s.sweeps||0; P.raids = s.raids||0; P.captured = s.captured||0;
+    P.lost = s.lost||0; P.wins = s.wins||0; P.losses = s.losses||0;
+    P.seen = s.seen||{}; P.owned = s.owned||{}; P.questsDone = s.questsDone||{};
+    P.team = (s.team||[]).map(Unit.fromJSON);
+    P.vault = (s.vault||[]).map(Unit.fromJSON);
+    line("  state restored.", "good"); hud(); return true;
+  } catch(e){ line("  no saved state.", "warn"); return false; }
+}
+async function wipe(){
+  try { await window.storage.delete("cybermon:save"); line("  save deleted. reload to start over.", "warn"); }
+  catch(e){ line("  nothing to delete.", "dim"); }
+}
+
+/* ─────────────────────────── shell ─────────────────────────── */
+
+const HELP = [
+  "  RUNS      sweep        open-net hunt, capture allowed",
+  "            raid         server dive, boss at the end",
+  "  ROSTER    team         active roster + vault",
+  "            rename n x   rename a unit",
+  "            order a b    swap two roster slots",
+  "            store n      roster -> vault",
+  "            pull n       vault -> roster",
+  "            rest         restore everything, free",
+  "  GEAR      inv          inventory",
+  "            use n        deploy an item outside combat",
+  "            market       buy and sell",
+  "  INTEL     codex        species index",
+  "            types        breach chart",
+  "            log          contracts and stats",
+  "  DISPLAY   theme x      neondeck matrix amber ice vapor mono",
+  "            set ...      scanlines glow flicker speed font size",
+  "            set layout   panes | stack | auto",
+  "            set side n   sidebar width    set log n  log height",
+  "            config       current display profile",
+  "  SYSTEM    handle x     change your handle",
+  "            save load wipe clear help"
+];
+
+async function boot(){
+  applyCfg();
+  hideInput();
+  const seq = [
+    ["  netrunner shell v2.4 — cold boot", "dim"],
+    ["  checking neural bridge .......... ok", "dim"],
+    ["  mounting codex .................. ok", "dim"],
+    ["  hostile process registry ........ 8 signatures", "dim"],
+    ["  WARNING: rogue constructs active on all sectors", "warn"]
+  ];
+  for (const [t, c] of seq){ await type(t, c); await sleep(90); }
+  line("");
+  await loadCfg();
+  paintStage(); paintSide();
+
+  const restored = await loadGame();
+  if (!restored){
+    const h = (await ask("handle>")).trim().slice(0, 14);
+    P.handle = h || "runner";
+    line("");
+    await type(`  welcome to the grid, ${P.handle}.`, "good");
+    const starters = ["EMBRIX", "CRYOD", "VOLTIK"];
+    line("");
+    line("  pick a starting construct:", "acc");
+    starters.forEach((s, i) => {
+      const sp = byId(s);
+      line(`   [${i + 1}] ${pad(s, 8)} ${pad(sp.type, 6)} hp ${sp.hp} atk ${sp.atk} def ${sp.def} spd ${sp.spd}`);
+      line(`       ${sp.note}`, "dim");
+    });
+    let choice = null;
+    while (!choice){
+      const raw = (await ask("select>")).trim();
+      const n = parseInt(raw, 10);
+      if (n >= 1 && n <= 3) choice = starters[n - 1];
+      else line("  pick 1, 2 or 3.", "warn");
+    }
+    const u = new Unit(choice, 5);
+    recruit(u); P.seen[choice] = true;
+    addItem("NANOPATCH", 2); addItem("BIND.EXE", 3);
+    P.credits = 150;
+    line("");
+    await type(`  ${choice} compiled and linked. loadout issued.`, "good");
+  }
+  line("");
+  line("  type `help` for orders.", "dim");
+  hud();
+  shell();
+}
+
+async function shell(){
+  for(;;){
+    hud();
+    const raw = (await ask(P.handle + "@grid>")).trim();
+    const parts = raw.split(/\s+/);
+    const cmd = (parts[0] || "").toLowerCase();
+    const args = parts.slice(1);
+    try {
+      switch(cmd){
+        case "": break;
+        case "help": case "?": line(""); block(HELP.join("\n")); break;
+        case "sweep": case "scan": await cmdSweep(); break;
+        case "raid": case "dive": await cmdRaid(); break;
+        case "team": case "roster": showTeam(); break;
+        case "inv": case "bag": showInv(); break;
+        case "use": await useItem(args[0]); break;
+        case "market": case "shop": await shop(); break;
+        case "codex": case "dex": showDex(); break;
+        case "types": showTypes(); break;
+        case "log": case "quest": case "quests": showQuests(); break;
+        case "rest": await rest(); break;
+        case "rename": renameUnit(args); break;
+        case "order": case "party": swapSlots(args); break;
+        case "store": store(args[0]); break;
+        case "pull": pull(args[0]); break;
+        case "theme": await cmdTheme((args[0] || "").toLowerCase()); break;
+        case "set": await cmdSet((args[0] || "").toLowerCase(), (args[1] || "").toLowerCase()); break;
+        case "config": showCfg(); break;
+        case "handle": {
+          const h = args.join(" ").slice(0, 14);
+          if (!h){ line("  usage: handle <name>", "warn"); break; }
+          P.handle = h; line("  handle set.", "good"); break;
+        }
+        case "save": await saveGame(); break;
+        case "load": await loadGame(); break;
+        case "wipe": await wipe(); break;
+        case "clear": case "cls": LOG.innerHTML = ""; break;
+        default: line(`  unknown order: ${cmd}   (try \`help\`)`, "warn");
+      }
+    } catch(err){
+      line("  runtime fault: " + err.message, "bad");
+      closeStage();
+    }
+  }
+}
+
+boot();
+</script>

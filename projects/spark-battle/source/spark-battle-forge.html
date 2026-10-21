@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Spark Battle · Card Forge</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════════════
+   THEME VARIABLES
+═══════════════════════════════════════════════════ */
+
+/* ── DARK (default) ── */
+[data-theme="dark"]{
+  --r:#ff2d55;       --rb:#ff2d5514;
+  --g:#00f5a0;       --gb:#00f5a00d;
+  --b:#0af;          --bb:#0aaf ff11;
+  --y:#f1c40f;
+  --txt:#eeeeff;     --txt2:#777799;  --txt3:#3a3a55;
+  --bg:#060611;      --bg2:#0c0c1e;
+  --border:rgba(255,255,255,0.09);
+  --border2:rgba(255,255,255,0.17);
+  --panel:rgba(6,6,17,0.55);
+  --header:rgba(6,6,17,0.82);
+  --input-bg:rgba(255,255,255,0.04);
+  --input-bg2:rgba(255,255,255,0.07);
+  --th-bg:rgba(8,8,20,0.97);
+  --row-hover:rgba(255,255,255,0.025);
+  --shadow:rgba(0,0,0,0.5);
+  --grad1:#1c003a88;  --grad2:#00253a88;
+  --noise-op:0.035;
+  --logo-sub:var(--r);
+  --art-border:rgba(0,170,255,0.13);
+  --art-bg:rgba(0,170,255,0.04);
+  --art-txt:rgba(240,240,255,0.58);
+  --art-lbl:rgba(0,170,255,0.65);
+}
+
+/* ── LIGHT ── */
+[data-theme="light"]{
+  --r:#e8003d;       --rb:#e8003d12;
+  --g:#00965a;       --gb:#00965a0e;
+  --b:#0066cc;       --bb:#0066cc12;
+  --y:#d4900a;
+  --txt:#1a1a30;     --txt2:#555588;  --txt3:#aaaacc;
+  --bg:#eeeef8;      --bg2:#e4e4f2;
+  --border:rgba(60,60,120,0.12);
+  --border2:rgba(60,60,120,0.22);
+  --panel:rgba(255,255,255,0.68);
+  --header:rgba(238,238,248,0.88);
+  --input-bg:rgba(255,255,255,0.75);
+  --input-bg2:rgba(255,255,255,0.95);
+  --th-bg:rgba(232,232,245,0.98);
+  --row-hover:rgba(80,80,160,0.04);
+  --shadow:rgba(80,80,160,0.12);
+  --grad1:#c8b8ee44;  --grad2:#b8d8f044;
+  --noise-op:0.018;
+  --logo-sub:var(--r);
+  --art-border:rgba(0,102,204,0.18);
+  --art-bg:rgba(0,102,204,0.05);
+  --art-txt:rgba(20,20,60,0.62);
+  --art-lbl:rgba(0,102,204,0.7);
+}
+
+/* ── SOLARIZED DARK ── */
+[data-theme="solar"]{
+  --r:#dc322f;       --rb:#dc322f14;
+  --g:#859900;       --gb:#85990012;
+  --b:#268bd2;       --bb:#268bd214;
+  --y:#b58900;
+  --txt:#eee8d5;     --txt2:#93a1a1;  --txt3:#4a6670;
+  --bg:#002b36;      --bg2:#073642;
+  --border:rgba(131,148,150,0.18);
+  --border2:rgba(131,148,150,0.32);
+  --panel:rgba(7,54,66,0.65);
+  --header:rgba(0,43,54,0.92);
+  --input-bg:rgba(7,54,66,0.55);
+  --input-bg2:rgba(7,54,66,0.8);
+  --th-bg:rgba(0,43,54,0.98);
+  --row-hover:rgba(131,148,150,0.06);
+  --shadow:rgba(0,0,0,0.55);
+  --grad1:#06404888;  --grad2:#001a2288;
+  --noise-op:0.025;
+  --logo-sub:#b58900;
+  --art-border:rgba(38,139,210,0.22);
+  --art-bg:rgba(38,139,210,0.06);
+  --art-txt:rgba(238,232,213,0.6);
+  --art-lbl:rgba(38,139,210,0.75);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);}
+body{
+  font-family:'Space Grotesk',sans-serif;color:var(--txt);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%,var(--grad1),transparent 55%),
+    radial-gradient(ellipse 50% 40% at 85% 100%,var(--grad2),transparent 55%),
+    var(--bg);
+  transition:background .3s, color .3s;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity:var(--noise-op);
+}
+
+/* ═══════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════ */
+header{
+  position:relative;z-index:20;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;
+  background:var(--header);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(24px);
+  transition:background .3s;
+}
+.logo-eye{
+  font-family:'DM Mono',monospace;font-size:8.5px;letter-spacing:5px;
+  color:var(--logo-sub);text-transform:uppercase;margin-bottom:1px;
+}
+.logo-title{font-size:18px;font-weight:700;letter-spacing:1px;}
+.logo-title b{color:var(--r);}
+.hdr-r{display:flex;align-items:center;gap:14px;}
+
+/* THEME SWITCHER */
+.theme-sw{display:flex;gap:4px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;padding:3px;}
+.th-btn{
+  padding:4px 10px;border-radius:5px;font-family:'DM Mono',monospace;
+  font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;
+  border:none;background:transparent;color:var(--txt2);cursor:pointer;
+  transition:all .15s;
+}
+.th-btn:hover{color:var(--txt);}
+.th-btn.on{background:var(--panel);color:var(--txt);box-shadow:0 1px 6px var(--shadow);}
+[data-theme="dark"] .th-btn.on{color:var(--r);}
+[data-theme="light"] .th-btn.on{color:var(--r);}
+[data-theme="solar"] .th-btn.on{color:var(--y);}
+
+/* STATUS */
+.hdr-sep{width:1px;height:18px;background:var(--border);}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--txt3);flex-shrink:0;}
+.dot.ok{background:var(--g);box-shadow:0 0 7px var(--g);animation:blink 2.5s infinite;}
+.dot.err{background:var(--r);}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hdr-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--txt2);}
+
+/* ═══════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════ */
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:300px 1fr;flex:1;min-height:0;}
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════════ */
+.sidebar{
+  border-right:1px solid var(--border);
+  background:var(--panel);
+  backdrop-filter:blur(20px);
+  padding:18px 16px;
+  display:flex;flex-direction:column;gap:16px;
+  overflow-y:auto;flex-shrink:0;
+  transition:background .3s,border-color .3s;
+}
+.slbl{
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:3px;
+  color:var(--txt3);text-transform:uppercase;margin-bottom:6px;
+}
+
+/* OLLAMA STATUS */
+.ol-st{padding:7px 10px;border-radius:7px;font-family:'DM Mono',monospace;font-size:10px;display:flex;align-items:center;gap:7px;transition:all .2s;}
+.ol-st.loading{background:var(--input-bg);border:1px solid var(--border);color:var(--txt2);}
+.ol-st.ok{background:var(--gb);border:1px solid rgba(0,150,90,0.25);color:var(--g);}
+[data-theme="light"] .ol-st.ok{color:var(--g);}
+.ol-st.err{background:var(--rb);border:1px solid rgba(220,50,47,0.3);color:var(--r);}
+.mspin{width:10px;height:10px;border:1.5px solid var(--txt3);border-top-color:var(--r);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.cors-box{margin-top:7px;padding:10px 11px;border-radius:7px;background:var(--rb);border:1px solid rgba(220,50,47,0.22);display:none;}
+.cors-box .ct{font-size:8px;font-weight:700;color:var(--r);letter-spacing:1px;margin-bottom:5px;}
+.cors-box code{display:block;font-family:'DM Mono',monospace;font-size:9px;color:var(--g);background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:4px;padding:5px 7px;margin:5px 0;}
+.cors-box .cn{font-size:8px;color:var(--txt2);line-height:1.5;}
+.lbtn{width:100%;margin-top:5px;padding:5px 8px;border-radius:5px;border:1px solid var(--border2);background:var(--input-bg);color:var(--txt2);font-family:'Space Grotesk',sans-serif;font-size:10px;cursor:pointer;transition:all .15s;}
+.lbtn:hover{border-color:var(--b);color:var(--b);}
+
+/* INPUTS */
+select,input[type=text],input[type=number]{
+  width:100%;background:var(--input-bg);border:1px solid var(--border);
+  border-radius:8px;color:var(--txt);font-family:'Space Grotesk',sans-serif;
+  font-size:12px;padding:8px 10px;outline:none;
+  appearance:none;-webkit-appearance:none;
+  transition:border .15s,background .15s,color .3s;
+}
+select:focus,input:focus{border-color:var(--r);background:var(--input-bg2);}
+.sw{position:relative;}
+.sw::after{content:'⌄';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--txt2);pointer-events:none;font-size:12px;}
+input::placeholder{color:var(--txt3);}
+
+/* RARITY RADIO */
+.rg{display:flex;gap:4px;flex-wrap:wrap;}
+.rb{
+  flex:1;min-width:48px;padding:5px 4px;text-align:center;
+  background:var(--input-bg);border:1px solid var(--border);
+  border-radius:6px;cursor:pointer;font-size:9px;font-weight:500;
+  color:var(--txt2);transition:all .13s;user-select:none;
+}
+.rb:hover{border-color:var(--border2);color:var(--txt);}
+.rb.on{background:var(--rb);border-color:var(--r);color:var(--r);}
+
+/* ── CLASS CHIPS — MULTI-SELECT ── */
+.class-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.class-meta{display:flex;align-items:center;gap:6px;}
+.class-count{
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1px;
+  color:var(--r);background:var(--rb);border:1px solid rgba(255,45,85,0.3);
+  padding:1px 6px;border-radius:20px;
+}
+.class-micro{display:flex;gap:3px;}
+.micro-btn{
+  padding:2px 7px;border-radius:4px;font-family:'DM Mono',monospace;font-size:7.5px;
+  letter-spacing:.8px;text-transform:uppercase;border:1px solid var(--border);
+  background:var(--input-bg);color:var(--txt2);cursor:pointer;transition:all .12s;
+}
+.micro-btn:hover{border-color:var(--border2);color:var(--txt);}
+.micro-btn.all-on{border-color:var(--g);color:var(--g);}
+.micro-btn.none-on{border-color:var(--r);color:var(--r);}
+
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.cc{
+  padding:6px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--input-bg);cursor:pointer;
+  display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt2);
+  transition:all .12s;user-select:none;position:relative;
+}
+.cc:hover{border-color:var(--border2);color:var(--txt);}
+.cc.on{color:var(--txt);}
+.cc .ck{
+  width:11px;height:11px;border-radius:3px;border:1px solid var(--border2);
+  background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:7px;transition:all .12s;
+}
+.cc.on .ck{background:var(--r);border-color:var(--r);color:#fff;}
+.cdot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+
+/* STEPPER */
+.stepper{display:flex;align-items:center;gap:7px;}
+.sbtn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--txt);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;}
+.sbtn:hover{border-color:var(--r);color:var(--r);}
+.sval{font-size:16px;font-weight:700;min-width:34px;text-align:center;font-family:'DM Mono',monospace;}
+.div{height:1px;background:var(--border);margin:1px 0;}
+
+/* PROGRESS */
+.pw{display:none;flex-direction:column;gap:5px;}
+.pw.show{display:flex;}
+.pbb{height:2px;background:var(--border);border-radius:2px;overflow:hidden;}
+.pb{height:100%;background:linear-gradient(90deg,var(--r),var(--y));border-radius:2px;transition:width .3s;}
+.ptxt{font-family:'DM Mono',monospace;font-size:8.5px;color:var(--txt2);display:flex;justify-content:space-between;}
+
+/* FORGE BUTTON */
+.forge-btn{
+  width:100%;padding:12px;border-radius:10px;border:none;
+  font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;
+  background:linear-gradient(135deg,var(--r),color-mix(in srgb,var(--r) 70%,black));
+  color:#fff;box-shadow:0 4px 18px var(--rb);
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.forge-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.13),transparent);opacity:0;transition:.2s;}
+.forge-btn:hover:not(:disabled)::before{opacity:1;}
+.forge-btn:hover:not(:disabled){transform:translateY(-1px);}
+.forge-btn:disabled{opacity:.4;cursor:not-allowed;}
+.forge-btn.busy{background:var(--input-bg);border:1px solid var(--border);box-shadow:none;color:var(--txt2);}
+
+/* ═══════════════════════════════════════════════════
+   CANVAS
+═══════════════════════════════════════════════════ */
+.canvas{display:flex;flex-direction:column;overflow:hidden;}
+.ctop{
+  flex-shrink:0;padding:11px 22px 10px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--header);backdrop-filter:blur(14px);
+  transition:background .3s;
+}
+.ctitle{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--txt3);text-transform:uppercase;}
+.cbadge{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:16px;padding:0 5px;border-radius:20px;background:var(--rb);border:1px solid rgba(255,45,85,0.3);font-size:8px;font-weight:700;color:var(--r);}
+.cacts{display:flex;gap:5px;align-items:center;}
+.abtn{
+  padding:5px 11px;border-radius:6px;border:1px solid var(--border);
+  background:var(--input-bg);color:var(--txt2);
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:1px;
+  cursor:pointer;transition:all .13s;text-transform:uppercase;
+}
+.abtn:hover{border-color:var(--g);color:var(--g);background:var(--gb);}
+.abtn.d:hover{border-color:var(--r);color:var(--r);background:var(--rb);}
+.abtn.obs:hover{border-color:#a78bfa;color:#a78bfa;background:rgba(167,139,250,0.09);}
+[data-theme="solar"] .abtn.obs:hover{border-color:#6c71c4;color:#6c71c4;}
+
+/* EMPTY */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--txt3);}
+.ei{font-size:38px;opacity:.22;filter:blur(1px);}
+.eh{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;}
+.es{font-family:'DM Mono',monospace;font-size:9px;}
+
+/* ═══════════════════════════════════════════════════
+   TABLE
+═══════════════════════════════════════════════════ */
+.tw{flex:1;overflow:auto;}
+table{width:100%;border-collapse:collapse;min-width:1200px;}
+thead th{
+  position:sticky;top:0;z-index:10;
+  padding:8px 11px;
+  background:var(--th-bg);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  font-family:'DM Mono',monospace;font-size:7.5px;letter-spacing:2.5px;
+  color:var(--txt3);text-transform:uppercase;text-align:left;white-space:nowrap;
+  transition:background .3s;
+}
+thead th:first-child{padding-left:18px;}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;animation:ri .3s ease both;}
+@keyframes ri{from{opacity:0;transform:translateX(-5px);}to{opacity:1;transform:none;}}
+tbody tr:hover{background:var(--row-hover);}
+tbody td{padding:9px 11px;vertical-align:top;}
+tbody td:first-child{padding-left:18px;}
+
+/* CELL TYPES */
+.tn{font-size:9px;font-family:'DM Mono',monospace;color:var(--txt3);}
+.nm{font-weight:600;font-size:12px;white-space:nowrap;}
+.cls{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;white-space:nowrap;}
+.rar{display:inline-block;padding:1px 7px;border-radius:20px;font-size:7.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:1px solid currentColor;white-space:nowrap;}
+.num{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;text-align:center;white-space:nowrap;}
+.atk{color:#ff6b85;}
+[data-theme="light"] .atk{color:#c0002a;}
+[data-theme="solar"] .atk{color:#dc322f;}
+.def{color:#4fc3f7;}
+[data-theme="light"] .def{color:#0055aa;}
+[data-theme="solar"] .def{color:#268bd2;}
+.sc{color:#ffd54f;}
+[data-theme="light"] .sc{color:#b07a00;}
+[data-theme="solar"] .sc{color:#b58900;}
+.uc{color:#b39ddb;}
+[data-theme="light"] .uc{color:#6644aa;}
+[data-theme="solar"] .uc{color:#6c71c4;}
+.kws{display:flex;flex-wrap:wrap;gap:3px;max-width:165px;}
+.kw{padding:1px 6px;border-radius:20px;font-size:7px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.03);}
+[data-theme="light"] .kw{border:1px solid rgba(0,0,0,0.1);background:rgba(0,0,0,0.04);}
+[data-theme="solar"] .kw{border:1px solid rgba(131,148,150,0.2);background:rgba(7,54,66,0.4);}
+.ab{font-size:10px;line-height:1.5;color:var(--txt2);max-width:185px;}
+.fl{font-family:'DM Mono',monospace;font-style:italic;font-size:8.5px;color:var(--txt3);max-width:145px;line-height:1.5;}
+
+/* ART PROMPT COLUMN */
+.ac{min-width:330px;max-width:430px;}
+.ai{background:var(--art-bg);border:1px solid var(--art-border);border-radius:8px;padding:8px 10px;}
+.ah{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.albl{font-family:'DM Mono',monospace;font-size:7px;letter-spacing:2px;color:var(--art-lbl);text-transform:uppercase;display:flex;align-items:center;gap:4px;}
+.arat{padding:1px 5px;border-radius:3px;background:rgba(0,102,204,0.12);border:1px solid rgba(0,102,204,0.2);color:var(--b);font-family:'DM Mono',monospace;font-size:7px;letter-spacing:1px;}
+[data-theme="solar"] .arat{border-color:rgba(38,139,210,0.3);}
+.atxt{font-family:'DM Mono',monospace;font-size:9px;line-height:1.7;color:var(--art-txt);margin-bottom:7px;word-break:break-word;}
+.afoot{display:flex;justify-content:flex-end;}
+.cbtn{padding:3px 8px;border-radius:4px;border:1px solid var(--art-border);background:var(--art-bg);color:var(--art-lbl);font-family:'DM Mono',monospace;font-size:7.5px;letter-spacing:.8px;cursor:pointer;transition:all .13s;text-transform:uppercase;}
+.cbtn:hover{border-color:var(--b);color:var(--b);}
+.cbtn.done{border-color:var(--g);color:var(--g);}
+
+/* ERROR / SHIMMER */
+.ecell{padding:10px 18px;}
+.ebox{padding:8px 11px;border-radius:7px;background:var(--rb);border:1px solid rgba(220,50,47,0.2);font-family:'DM Mono',monospace;font-size:9.5px;color:var(--r);}
+.shrw td div{height:10px;border-radius:3px;background:var(--border);animation:sp 1.2s infinite;}
+@keyframes sp{0%,100%{opacity:.45;}50%{opacity:1;}}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+option{background:var(--bg2);}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div>
+    <div class="logo-eye">AI Card Forge</div>
+    <div class="logo-title">SPARK <b>BATTLE</b></div>
+  </div>
+  <div class="hdr-r">
+    <!-- THEME SWITCHER -->
+    <div class="theme-sw">
+      <button class="th-btn on" data-t="dark">Dark</button>
+      <button class="th-btn" data-t="light">Light</button>
+      <button class="th-btn" data-t="solar">Solar</button>
+    </div>
+    <div class="hdr-sep"></div>
+    <span class="dot" id="hDot"></span>
+    <span class="hdr-lbl" id="hLbl">Connecting…</span>
+  </div>
+</header>
+
+<!-- ── LAYOUT ── -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Ollama -->
+    <div>
+      <div class="slbl">Ollama Engine</div>
+      <div class="ol-st loading" id="olSt">
+        <div class="mspin"></div>Detecting models…
+      </div>
+      <div class="cors-box" id="cBox">
+        <div class="ct">⚠ CORS Blocked — Fix:</div>
+        <div class="cn">Stop Ollama, then run in Terminal:</div>
+        <code>OLLAMA_ORIGINS="*" ollama serve</code>
+        <div class="cn">Then reload this page.</div>
+        <button class="lbtn" onclick="navigator.clipboard.writeText('OLLAMA_ORIGINS=&quot;*&quot; ollama serve')">📋 Copy command</button>
+        <button class="lbtn" onclick="detectOllama()" style="margin-top:3px;">↻ Retry</button>
+      </div>
+    </div>
+
+    <!-- Model -->
+    <div>
+      <div class="slbl">Model</div>
+      <div class="sw"><select id="mSel"><option value="">— detecting —</option></select></div>
+    </div>
+
+    <div class="div"></div>
+
+    <!-- HYBRID CLASS SELECTION -->
+    <div>
+      <div class="class-header">
+        <div class="class-meta">
+          <span class="slbl" style="margin-bottom:0;">Class</span>
+          <span class="class-count" id="clsCnt">All</span>
+        </div>
+        <div class="class-micro">
+          <button class="micro-btn" id="clsAll">All</button>
+          <button class="micro-btn" id="clsNone">None</button>
+        </div>
+      </div>
+      <div class="cg" id="cGrid"></div>
+    </div>
+
+    <!-- Rarity -->
+    <div>
+      <div class="slbl">Rarity</div>
+      <div class="rg" id="rGrp">
+        <div class="rb on" data-v="random">🎲 Any</div>
+        <div class="rb" data-v="Common">Common</div>
+        <div class="rb" data-v="Uncommon">Uncommon</div>
+        <div class="rb" data-v="Rare">Rare</div>
+        <div class="rb" data-v="Legendary">Legend</div>
+      </div>
+    </div>
+
+    <!-- Theme input -->
+    <div>
+      <div class="slbl">Theme / Concept</div>
+      <input id="thIn" type="text" placeholder="lava titan, void wraith, shadow archer…"/>
+    </div>
+
+    <!-- Batch -->
+    <div>
+      <div class="slbl">Batch Size <span style="font-family:'DM Mono',monospace;font-size:7.5px;color:var(--txt3);letter-spacing:1px;">(1 – 100)</span></div>
+      <div class="stepper">
+        <button class="sbtn" id="sD">−</button>
+        <div class="sval" id="sV">5</div>
+        <button class="sbtn" id="sU">+</button>
+        <input id="bIn" type="number" min="1" max="100" value="5"
+          style="width:56px;text-align:center;padding:7px 4px;font-family:'DM Mono',monospace;font-size:12px;"/>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="pw" id="pw">
+      <div class="pbb"><div class="pb" id="pb" style="width:0%"></div></div>
+      <div class="ptxt"><span id="ptxt">Generating…</span><span id="ppct">0%</span></div>
+    </div>
+
+    <div style="flex:1"></div>
+    <button class="forge-btn" id="fBtn">⚡ Forge Cards</button>
+
+  </aside>
+
+  <!-- CANVAS -->
+  <section class="canvas">
+
+    <div class="ctop">
+      <div class="ctitle">
+        Generated <span class="cbadge" id="cnt">0</span>
+      </div>
+      <div class="cacts" id="cActs" style="display:none;">
+        <button class="abtn" id="copyAll">📋 Copy Art Prompts</button>
+        <button class="abtn" id="expCsv">⬇ CSV</button>
+        <button class="abtn obs" id="expMd">⬇ Obsidian MD</button>
+        <button class="abtn d" id="clrBtn">✕ Clear</button>
+      </div>
+    </div>
+
+    <div class="empty" id="emp">
+      <div class="ei">⚡</div>
+      <div class="eh">Awaiting forge command</div>
+      <div class="es">Pick classes · set batch · hit Forge</div>
+    </div>
+
+    <div class="tw" id="tw" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Class</th>
+            <th>Rarity</th>
+            <th style="text-align:center;">SC</th>
+            <th style="text-align:center;">UC</th>
+            <th style="text-align:center;">ATK</th>
+            <th style="text-align:center;">DEF</th>
+            <th>Keywords</th>
+            <th>Ability</th>
+            <th>Flavor</th>
+            <th>🎨 Art Prompt — Anime/Manga · 3:4</th>
+          </tr>
+        </thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+
+  </section>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const CLASSES=[
+  {id:"Drake",   icon:"🐉",color:"#e74c3c"},
+  {id:"Vanguard",icon:"⚔️",color:"#3498db"},
+  {id:"Hex",     icon:"🔮",color:"#9b59b6"},
+  {id:"Synth",   icon:"🤖",color:"#1abc9c"},
+  {id:"Frame",   icon:"🦾",color:"#7f8c8d"},
+  {id:"Feral",   icon:"🐺",color:"#e67e22"},
+  {id:"Hive",    icon:"🐝",color:"#c5a800"},
+  {id:"Hollow",  icon:"👹",color:"#8e44ad"},
+  {id:"Specter", icon:"👻",color:"#00b5ad"},
+  {id:"Golem",   icon:"🗿",color:"#95a5a6"},
+  {id:"Risen",   icon:"💀",color:"#636e72"},
+  {id:"Colossus",icon:"🏔️",color:"#c0392b"},
+  {id:"Tide",    icon:"🌊",color:"#2980b9"},
+];
+const RARS=["Common","Uncommon","Rare","Legendary"];
+const RC={Common:"#888",Uncommon:"#00b37a",Rare:"#9b59b6",Legendary:"#e6a800"};
+const KC={
+  Flying:"#0af",Grab:"#0af",Overwhelm:"#ff2d55",Drain:"#9b59b6",Retaliate:"#e67e22",
+  Dash:"#d4a800",Armor:"#7f8c8d",Negate:"#2ecc71",Root:"#a0742a",Bloom:"#27ae60",
+  Devour:"#c0392b",Burn:"#ff2d55",Sprout:"#27ae60",Surge:"#d4a800",Reinforce:"#3498db",
+  Protocol:"#1abc9c",Sap:"#9b59b6",Heal:"#2ecc71",Echo:"#3498db",Shield:"#2980b9",
+  Revive:"#9b59b6",Overclock:"#e67e22",Slow:"#636e72",Lockdown:"#c0392b",
+  Corrupt:"#6c3483",Submerge:"#1a5276",Override:"#ff2d55",Fortify:"#7f8c8d",
+};
+
+const SYS=`You are a card designer for SPARK BATTLE. Generate ONE creature card.
+
+STATS (ATK/DEF = multiples of 10, range 10-300):
+SC 1-3: ATK 20-80, DEF 20-80
+SC 4-5: ATK 60-130, DEF 60-130
+SC 6-7: ATK 100-200, DEF 100-200
+SC 8-9: ATK 160-300, DEF 120-250
+UC: 1-4 SP, never greater than SC.
+
+KEYWORDS — passive: Flying, Grab, Overwhelm, Drain, Retaliate, Dash, Armor, Fortify X%, Negate, Root, Bloom, Devour, Burn X, Sprout, Surge, Reinforce, Protocol, Sap, Heal X
+KEYWORDS — activated: Echo 1SP, Shield 2SP, Revive 4SP, Overclock +1to+4SP
+Replace X with a real number. Count: Common 1-2, Uncommon 2-3, Rare 3-4, Legendary 4-5.
+abilityText: 1-2 sentences on keyword effects.
+flavorText: evocative quote max 8 words.
+
+artPrompt: You are a professional anime digital painter specialising in collectible card game character and creature art. Your references are Yoshitaka Amano and Yusuke Murata. You paint in Stable Diffusion XL, portrait 3:4 ratio.
+
+SUBJECT ONLY — no background, no environment, no scenery. The subject is isolated on a plain white or very lightly toned neutral ground. Every word of the prompt describes the character or creature itself. Nothing else.
+
+CREATURE SPECTRUM — place the subject on this axis by class:
+FULLY HUMAN (Vanguard, Hex, Synth):
+  Single anime character, full body or 3/4 view. Strong expressive face, elaborate hand-crafted armour or ceremonial robes, expressive hands, body language radiating power or menace. Stylised anime proportions — elongated, dynamic, never photorealistic.
+
+HYBRID — HUMAN FUSING WITH BEAST OR ELEMENT (Feral, Hollow, Specter, Risen, Hive):
+  Humanoid silhouette actively merging with something inhuman. Torn armour revealing chitin, bark, smoke, rot or swarm beneath the skin. Face mid-transformation — still readable but wrong. Limbs ending in claws, roots, tendrils, or insect appendages.
+
+FULL MONSTER OR MACHINE (Drake, Golem, Colossus, Tide, Frame):
+  No humanoid form. Full creature or construct filling the frame — scales, carapace, crystal growths, hydraulic plating, flowing magma veins. Give it one strong focal point: a glowing eye, an open maw, a pulsing core.
+
+CLASS COLOUR IDENTITIES — use as the dominant palette of the subject itself:
+  Drake: deep crimson, burnt orange, ash grey, magma gold
+  Vanguard: royal cobalt blue, silver, white gold, shadow navy
+  Hex: violet, deep indigo, electric lavender, arcane teal
+  Synth: teal, chrome silver, electric cyan, obsidian black
+  Frame: gunmetal grey, industrial orange, rust brown, spark yellow
+  Feral: forest green, raw umber, blood orange, bone white
+  Hive: amber yellow, chitin brown, acid green, void black
+  Hollow: deep purple, necrotic green, ashen white, void red
+  Specter: pale blue-white, ghost silver, translucent mist
+  Golem: slate grey, quartz white, earth brown, glowing amber veins
+  Risen: sickly green, bone ivory, dark purple
+  Colossus: obsidian black, titan gold, deep magma red
+  Tide: deep ocean blue, bioluminescent teal, seafoam green
+
+PROMPT STRUCTURE — write in this exact order, subject only:
+1. What it is and its body structure — shape, scale, materials, textures
+2. Its single most striking visual detail — the thing that makes it unforgettable
+3. Its pose and expression — stance, weight, direction of gaze, emotional tone
+4. Its surface lighting — rim light colour and direction, any self-emitted glow from the body itself
+5. CLOSE with this EXACT tag block, unmodified:
+"anime digital painting, collectible card game art, bold ink linework, character on white background, isolated subject, no background, chromatic underlighting, vivid saturated palette, dynamic pose, highly detailed, dramatic lighting, masterpiece quality, sharp focus, 8k, portrait"
+
+HARD RULES:
+- NO background, environment, scenery, floor, ground, sky, or props — subject only
+- NO nudity — no exposed skin on humanoids beyond face, neck, and hands
+- NO sexual or suggestive content or framing
+- Positive prompt only — no negative qualifiers inside the artPrompt field
+- Maximum 120 words
+
+Reply ONLY with raw JSON, zero extra text:
+{"name":"","class":"","rarity":"","sc":0,"uc":0,"atk":0,"def":0,"keywords":[],"abilityText":"","flavorText":"","artPrompt":""}`;
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let selClasses=new Set(CLASSES.map(c=>c.id)); // all selected by default
+let selR="random", batch=5, cards=[], forging=false, models=[];
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll(".th-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const t=btn.dataset.t;
+    document.documentElement.setAttribute("data-theme",t);
+    document.querySelectorAll(".th-btn").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    localStorage.setItem("sb-theme",t);
+  });
+});
+// Restore saved theme
+(()=>{
+  const saved=localStorage.getItem("sb-theme");
+  if(saved){
+    document.documentElement.setAttribute("data-theme",saved);
+    document.querySelectorAll(".th-btn").forEach(b=>{
+      b.classList.toggle("on", b.dataset.t===saved);
+    });
+  }
+})();
+
+// ── OLLAMA ────────────────────────────────────────────────────────────────────
+async function detectOllama(){
+  const st=document.getElementById("olSt");
+  const cb=document.getElementById("cBox");
+  const ms=document.getElementById("mSel");
+  st.className="ol-st loading";
+  st.innerHTML='<div class="mspin"></div>Detecting models…';
+  cb.style.display="none";
+  try{
+    const r=await fetch("http://localhost:11434/api/tags");
+    if(r.status===403) throw Object.assign(new Error("cors"),{cors:true});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    models=(d.models||[]).map(m=>m.name);
+    if(!models.length) throw new Error("No models found — run: ollama pull llama3");
+    st.className="ol-st ok";
+    st.innerHTML="● "+models.length+" model"+(models.length>1?"s":"")+" ready";
+    ms.innerHTML=models.map(m=>`<option value="${m}">${m}</option>`).join("");
+    dot("ok","Ollama · "+models.length+" models");
+  }catch(e){
+    st.className="ol-st err";
+    if(e.cors||e instanceof TypeError){
+      st.innerHTML="✕ CORS blocked — see fix below";cb.style.display="block";
+    }else{
+      st.innerHTML="✕ "+e.message;
+    }
+    ms.innerHTML='<option value="">— offline —</option>';
+    dot("err","Ollama offline");
+  }
+}
+function dot(s,l){
+  const d=document.getElementById("hDot");
+  d.className="dot"+(s==="ok"?" ok":s==="err"?" err":"");
+  document.getElementById("hLbl").textContent=l;
+}
+
+async function callOllama(model,prompt){
+  const r=await fetch("http://localhost:11434/api/chat",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model,stream:false,
+      messages:[{role:"system",content:SYS},{role:"user",content:prompt}],
+      options:{temperature:0.9}})
+  });
+  if(!r.ok) throw new Error("Ollama "+r.status);
+  const d=await r.json();
+  const txt=(d.message?.content||"").replace(/```json|```/gi,"").trim();
+  const m=txt.match(/\{[\s\S]*\}/);
+  if(!m) throw new Error("No JSON returned");
+  return JSON.parse(m[0]);
+}
+
+// ── CLASS CHIPS (MULTI-SELECT) ────────────────────────────────────────────────
+function updateClassCount(){
+  const cnt=document.getElementById("clsCnt");
+  const n=selClasses.size;
+  if(n===CLASSES.length){ cnt.textContent="All"; }
+  else if(n===0){ cnt.textContent="None"; }
+  else{ cnt.textContent=n+" / "+CLASSES.length; }
+}
+
+function buildClasses(){
+  const g=document.getElementById("cGrid");
+  let h="";
+  CLASSES.forEach(c=>{
+    const isOn=selClasses.has(c.id);
+    h+=`<div class="cc${isOn?" on":""}" data-c="${c.id}">
+      <span class="ck">${isOn?"✓":""}</span>
+      <span class="cdot" style="background:${c.color};box-shadow:0 0 5px ${c.color}66;"></span>
+      ${c.icon} ${c.id}
+    </div>`;
+  });
+  g.innerHTML=h;
+  g.querySelectorAll(".cc").forEach(ch=>{
+    ch.addEventListener("click",()=>{
+      const id=ch.dataset.c;
+      if(selClasses.has(id)){ selClasses.delete(id); ch.classList.remove("on"); ch.querySelector(".ck").textContent=""; }
+      else{ selClasses.add(id); ch.classList.add("on"); ch.querySelector(".ck").textContent="✓"; }
+      updateClassCount();
+    });
+  });
+}
+
+document.getElementById("clsAll").addEventListener("click",()=>{
+  selClasses=new Set(CLASSES.map(c=>c.id));
+  buildClasses(); updateClassCount();
+});
+document.getElementById("clsNone").addEventListener("click",()=>{
+  selClasses=new Set();
+  buildClasses(); updateClassCount();
+});
+
+function pickClass(){
+  const pool=selClasses.size>0?[...selClasses]:CLASSES.map(c=>c.id);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// ── RARITY ────────────────────────────────────────────────────────────────────
+function buildRarity(){
+  document.getElementById("rGrp").querySelectorAll(".rb").forEach(b=>{
+    b.addEventListener("click",()=>{
+      selR=b.dataset.v;
+      document.getElementById("rGrp").querySelectorAll(".rb").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+    });
+  });
+}
+
+// ── STEPPER ───────────────────────────────────────────────────────────────────
+function buildStepper(){
+  const inp=document.getElementById("bIn");
+  const val=document.getElementById("sV");
+  const sync=()=>{batch=Math.min(100,Math.max(1,parseInt(inp.value)||1));val.textContent=batch;inp.value=batch;};
+  document.getElementById("sD").onclick=()=>{inp.value=Math.max(1,batch-1);sync();};
+  document.getElementById("sU").onclick=()=>{inp.value=Math.min(100,batch+1);sync();};
+  inp.addEventListener("change",sync);
+  inp.addEventListener("input",()=>{batch=Math.min(100,Math.max(1,parseInt(inp.value)||1));val.textContent=batch;});
+}
+
+// ── TABLE HELPERS ─────────────────────────────────────────────────────────────
+function copyTxt(txt,btn){
+  navigator.clipboard.writeText(txt).then(()=>{
+    btn.textContent="✓ Copied";btn.classList.add("done");
+    setTimeout(()=>{btn.textContent="Copy";btn.classList.remove("done");},1800);
+  });
+}
+
+function makeRow(card,n){
+  const cl=CLASSES.find(c=>c.id===card.class)||{color:"#ff2d55",icon:"⚡"};
+  const rc=RC[card.rarity]||"#888";
+  const kws=(card.keywords||[]).map(kw=>{
+    const base=kw.split(" ")[0];const kc=KC[base]||"#888";
+    return `<span class="kw" style="color:${kc};border-color:${kc}44;">${kw}</span>`;
+  }).join("");
+  const ap=(card.artPrompt||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const tr=document.createElement("tr");
+  tr.innerHTML=`
+    <td><span class="tn">${n}</span></td>
+    <td><div class="nm" style="color:${cl.color};">${card.name||"?"}</div></td>
+    <td><div class="cls" style="color:${cl.color};">${cl.icon} ${card.class}</div></td>
+    <td><div class="rar" style="color:${rc};border-color:${rc}77;background:${rc}12;">${card.rarity}</div></td>
+    <td><div class="num sc">${card.sc}</div></td>
+    <td><div class="num uc">${card.uc}</div></td>
+    <td><div class="num atk">${card.atk}</div></td>
+    <td><div class="num def">${card.def}</div></td>
+    <td><div class="kws">${kws}</div></td>
+    <td><div class="ab">${card.abilityText||"—"}</div></td>
+    <td><div class="fl">${card.flavorText?`"${card.flavorText}"`:"—"}</div></td>
+    <td class="ac">
+      <div class="ai">
+        <div class="ah">
+          <div class="albl">🎨 Anime · Manga</div>
+          <div class="arat">3:4</div>
+        </div>
+        <div class="atxt">${ap||"—"}</div>
+        <div class="afoot">
+          <button class="cbtn" onclick="copyTxt(this.closest('.ai').querySelector('.atxt').textContent.trim(),this)">Copy</button>
+        </div>
+      </div>
+    </td>`;
+  return tr;
+}
+
+function makeShimmer(n){
+  const tr=document.createElement("tr");
+  tr.className="shrw";
+  tr.innerHTML=`<td><span class="tn">${n}</span></td>`
+    +Array(11).fill('<td><div style="height:10px;border-radius:3px;"></div></td>').join("");
+  return tr;
+}
+function makeErr(msg){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td colspan="12" class="ecell"><div class="ebox">⚠ ${msg}</div></td>`;
+  return tr;
+}
+
+// ── FORGE ─────────────────────────────────────────────────────────────────────
+async function forge(){
+  if(forging) return;
+  const model=document.getElementById("mSel").value;
+  if(!model){alert("No Ollama model selected.");return;}
+  if(selClasses.size===0&&confirm("No classes selected — forge with all classes?")){
+    selClasses=new Set(CLASSES.map(c=>c.id));buildClasses();updateClassCount();
+  }
+
+  forging=true;
+  const btn=document.getElementById("fBtn");
+  btn.textContent="⚡ Forging…";btn.classList.add("busy");btn.disabled=true;
+  document.getElementById("emp").style.display="none";
+  document.getElementById("tw").style.display="";
+  document.getElementById("cActs").style.display="flex";
+
+  const pw=document.getElementById("pw");
+  const pb=document.getElementById("pb");
+  pw.classList.add("show");pb.style.width="0%";
+
+  const theme=document.getElementById("thIn").value.trim();
+  const tb=document.getElementById("tb");
+  const total=batch;
+  const startN=cards.length+1;
+  const shims=[];
+
+  for(let i=0;i<total;i++){const s=makeShimmer(startN+i);tb.appendChild(s);shims.push(s);}
+  document.getElementById("tw").scrollTop=document.getElementById("tw").scrollHeight;
+
+  for(let i=0;i<total;i++){
+    const pct=Math.round((i/total)*100);
+    pb.style.width=pct+"%";
+    document.getElementById("ptxt").textContent="Card "+(i+1)+" of "+total+"…";
+    document.getElementById("ppct").textContent=pct+"%";
+
+    const cls=pickClass();
+    const rar=selR==="random"?RARS[Math.floor(Math.random()*RARS.length)]:selR;
+    const prompt="Generate a "+rar+" "+cls+" creature card"+(theme?` themed: "${theme}"`:"")
+      +". Creative name. Rich descriptive artPrompt.";
+    try{
+      const card=await callOllama(model,prompt);
+      card.class=cls;card.rarity=rar;
+      cards.push(card);
+      shims[i].replaceWith(makeRow(card,startN+i));
+    }catch(e){
+      shims[i].replaceWith(makeErr(e.message));
+    }
+  }
+
+  pb.style.width="100%";
+  document.getElementById("ptxt").textContent="Done — "+total+" card"+(total>1?"s":"")+" generated";
+  document.getElementById("ppct").textContent="100%";
+  setTimeout(()=>pw.classList.remove("show"),2800);
+
+  forging=false;
+  btn.textContent="⚡ Forge Cards";btn.classList.remove("busy");btn.disabled=false;
+  document.getElementById("cnt").textContent=cards.length;
+}
+
+// ── COPY ALL ART PROMPTS ──────────────────────────────────────────────────────
+document.getElementById("copyAll").addEventListener("click",()=>{
+  const txt=cards.map((c,i)=>`[${i+1}] ${c.name} · ${c.class} · ${c.rarity}\n${c.artPrompt||""}`).join("\n\n");
+  navigator.clipboard.writeText(txt).then(()=>{
+    const b=document.getElementById("copyAll");
+    b.textContent="✓ Copied!";setTimeout(()=>b.textContent="📋 Copy Art Prompts",2000);
+  });
+});
+
+// ── CSV ───────────────────────────────────────────────────────────────────────
+document.getElementById("expCsv").addEventListener("click",()=>{
+  const hdr=["#","Name","Class","Rarity","SC","UC","ATK","DEF","Keywords","Ability","Flavor","Art Prompt (Anime/Manga · SDXL 3:4)"];
+  const rows=cards.map((c,i)=>[i+1,c.name,c.class,c.rarity,c.sc,c.uc,c.atk,c.def,
+    (c.keywords||[]).join("; "),c.abilityText,c.flavorText,c.artPrompt
+  ].map(v=>`"${String(v||"").replace(/"/g,'""')}"`));
+  const csv=[hdr.map(h=>`"${h}"`).join(","),...rows.map(r=>r.join(","))].join("\n");
+  const a=document.createElement("a");
+  a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+  a.download="spark-battle-cards.csv";a.click();
+});
+
+// ── OBSIDIAN MD ───────────────────────────────────────────────────────────────
+document.getElementById("expMd").addEventListener("click",()=>{
+  const now=new Date();
+  const ds=now.toISOString().slice(0,10);
+  const ts=now.toTimeString().slice(0,8);
+  const model=document.getElementById("mSel").value||"unknown";
+  const clsIcons=Object.fromEntries(CLASSES.map(c=>[c.id,c.icon]));
+
+  let md="---\n";
+  md+="tags:\n  - spark-battle\n  - cards\n  - generated\n";
+  md+="date: "+ds+"\n";
+  md+="total: "+cards.length+"\n";
+  md+="model: "+model+"\n";
+  md+="---\n\n";
+  md+="# ⚡ Spark Battle — Generated Cards\n";
+  md+="*"+cards.length+" card"+(cards.length!==1?"s":"")+" · "+ds+" "+ts+" · model: `"+model+"`*\n\n";
+
+  cards.forEach(function(c){
+    const icon=clsIcons[c.class]||"⚡";
+    const kws=(c.keywords||[]).map(k=>"`"+k+"`").join("  ");
+    const ap=(c.artPrompt||"No prompt.").replace(/\n/g,"\n> ");
+    md+="---\n\n";
+    md+="## "+icon+" "+(c.name||"Unnamed")+"\n\n";
+    md+="```yaml\n";
+    md+="class:    "+c.class+"\n";
+    md+="rarity:   "+c.rarity+"\n";
+    md+="sc:       "+c.sc+"\n";
+    md+="uc:       "+c.uc+"\n";
+    md+="atk:      "+c.atk+"\n";
+    md+="def:      "+c.def+"\n";
+    md+="keywords: ["+(c.keywords||[]).join(", ")+"]\n";
+    md+="```\n\n";
+    md+="| | |\n|:--|:--|\n";
+    md+="| **Class** | "+icon+" "+c.class+" |\n";
+    md+="| **Rarity** | "+c.rarity+" |\n";
+    md+="| **Summon Cost** | "+c.sc+" SP |\n";
+    md+="| **Use Cost** | "+c.uc+" SP |\n";
+    md+="| **ATK** | "+c.atk+" |\n";
+    md+="| **DEF** | "+c.def+" |\n\n";
+    md+="**Keywords:** "+(kws||"—")+"\n\n";
+    md+="> "+(c.abilityText||"—")+"\n\n";
+    if(c.flavorText) md+="*\""+c.flavorText+"\"*\n\n";
+    md+="> [!example] 🎨 Anime/Manga Art Prompt — Portrait 3:4\n";
+    md+="> "+ap+"\n\n";
+  });
+
+  md+="---\n\n## 📊 Card Index\n\n";
+  md+="| # | Name | Class | Rarity | SC | UC | ATK | DEF | Keywords |\n";
+  md+="|---|------|-------|--------|:--:|:--:|:--:|:--:|----------|\n";
+  cards.forEach(function(c,i){
+    const icon=clsIcons[c.class]||"⚡";
+    md+="| "+(i+1)+" | [[#"+icon+" "+(c.name||"?")+"|"+(c.name||"?")+"]] | "+c.class+" | "+c.rarity+" | "+c.sc+" | "+c.uc+" | "+c.atk+" | "+c.def+" | "+(c.keywords||[]).join(", ")+" |\n";
+  });
+  md+="\n---\n*Spark Battle Card Forge · "+ds+"*\n";
+
+  const a=document.createElement("a");
+  a.href="data:text/markdown;charset=utf-8,"+encodeURIComponent(md);
+  a.download="spark-battle-cards-"+ds+".md";
+  a.click();
+});
+
+// ── CLEAR ─────────────────────────────────────────────────────────────────────
+document.getElementById("clrBtn").addEventListener("click",()=>{
+  cards=[];
+  document.getElementById("tb").innerHTML="";
+  document.getElementById("tw").style.display="none";
+  document.getElementById("emp").style.display="";
+  document.getElementById("cActs").style.display="none";
+  document.getElementById("cnt").textContent="0";
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.getElementById("fBtn").addEventListener("click",forge);
+document.getElementById("thIn").addEventListener("keydown",e=>{if(e.key==="Enter")forge();});
+buildClasses();
+updateClassCount();
+buildRarity();
+buildStepper();
+detectOllama();
+</script>
+</body>
+</html>

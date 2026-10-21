@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DATAKEEPER · Digital Lifeform Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0B0E1A;
+  --panel:#141a2e;
+  --panel2:#1b2340;
+  --screen:#0E2230;
+  --phosphor:#7DF2C5;
+  --phos-dim:#3a8f76;
+  --amber:#FFB454;
+  --glitch:#FF4FD8;
+  --bone:#E8E4D8;
+  --dim:#7a86a8;
+  --bad:#ff6b6b;
+  --line:#2a3458;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--void);color:var(--bone);font-family:'VT323',monospace;font-size:20px;min-height:100%}
+body{display:flex;justify-content:center;padding:10px 8px 40px}
+.device{width:100%;max-width:440px}
+
+/* ---------- bezel header ---------- */
+.bezel{display:flex;align-items:center;justify-content:space-between;padding:10px 4px 12px}
+.brand{font-family:'Press Start 2P',monospace;font-size:11px;color:var(--amber);letter-spacing:1px}
+.brand small{display:block;font-family:'VT323',monospace;font-size:15px;color:var(--dim);letter-spacing:2px;margin-top:5px}
+.bits{font-family:'Press Start 2P',monospace;font-size:10px;color:var(--amber);background:var(--panel);border:2px solid var(--line);padding:8px 10px;border-radius:4px}
+
+/* ---------- CRT screen ---------- */
+.crt-wrap{border:3px solid var(--line);border-radius:10px;background:var(--panel);padding:8px}
+.crt{position:relative;background:radial-gradient(ellipse at 50% 35%, #143447 0%, var(--screen) 55%, #081722 100%);
+  border-radius:6px;height:300px;overflow:hidden;border:2px solid #060b12}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:6px;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 4px);
+  mix-blend-mode:multiply}
+.crt::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;border-radius:6px;
+  background:radial-gradient(ellipse at 50% 0%, rgba(125,242,197,.08), transparent 60%)}
+.crt.glitching{animation:shudder .25s steps(2) infinite}
+@keyframes shudder{0%{transform:translate(0,0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,-2px)}}
+
+#stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column}
+#spriteBox{position:relative;width:160px;height:160px;display:flex;align-items:center;justify-content:center}
+canvas.pix{image-rendering:pixelated;image-rendering:crisp-edges}
+#petCanvas{width:160px;height:160px;animation:bob 2.4s ease-in-out infinite;cursor:pointer}
+#petCanvas.sad{animation-duration:4.5s;filter:saturate(.6) brightness(.85)}
+#petCanvas.hyper{animation-duration:1.1s}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.shadow{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:90px;height:14px;border-radius:50%;
+  background:rgba(0,0,0,.45);filter:blur(3px)}
+#moodBubble{position:absolute;top:-4px;right:-10px;font-family:'Press Start 2P',monospace;font-size:14px;
+  color:var(--phosphor);text-shadow:0 0 8px var(--phosphor);opacity:0;transition:opacity .3s}
+#moodBubble.show{opacity:1}
+#screenMsg{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:var(--phosphor);
+  font-size:19px;text-shadow:0 0 6px rgba(125,242,197,.6);padding:0 14px;line-height:1.1;z-index:2}
+#nameplate{position:absolute;top:8px;left:10px;z-index:2;color:var(--phosphor);text-shadow:0 0 6px rgba(125,242,197,.5);
+  font-size:18px;line-height:1.2}
+#nameplate .sp{color:var(--dim);font-size:15px}
+#stageTag{position:absolute;top:8px;right:10px;z-index:2;font-family:'Press Start 2P',monospace;font-size:8px;
+  color:var(--amber);border:1px solid var(--amber);padding:4px 6px;border-radius:3px;opacity:.9}
+#awayOverlay{position:absolute;inset:0;z-index:4;display:none;align-items:center;justify-content:center;flex-direction:column;
+  background:rgba(8,14,22,.82);color:var(--phosphor);text-align:center;gap:10px}
+#awayOverlay.show{display:flex}
+#awayOverlay .qz{font-family:'Press Start 2P',monospace;font-size:10px;letter-spacing:1px}
+#awayOverlay .timer{font-size:34px;text-shadow:0 0 10px var(--phosphor)}
+
+/* ---------- meters ---------- */
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:var(--panel);border:3px solid var(--line);
+  border-top:none;border-radius:0 0 10px 10px;padding:12px 14px 14px}
+.meter label{display:flex;justify-content:space-between;font-size:17px;color:var(--dim);letter-spacing:1px}
+.meter label b{color:var(--bone);font-weight:normal}
+.bar{height:12px;background:#0a0f1d;border:1px solid var(--line);border-radius:2px;margin-top:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--phos-dim),var(--phosphor));
+  width:50%;transition:width .4s;box-shadow:0 0 6px rgba(125,242,197,.5)}
+.bar i.low{background:linear-gradient(90deg,#8a3a3a,var(--bad))}
+.bar i.bond{background:linear-gradient(90deg,#8a5a20,var(--amber))}
+
+/* ---------- buttons ---------- */
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+button{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--bone);background:var(--panel2);
+  border:2px solid var(--line);border-bottom-width:4px;border-radius:6px;padding:13px 4px 11px;cursor:pointer;
+  letter-spacing:.5px;transition:transform .05s, background .15s}
+button:active{transform:translateY(2px);border-bottom-width:2px}
+button:hover{background:#232c52}
+button.amber{color:var(--amber);border-color:#5a4321}
+button.glow{color:var(--phosphor);border-color:#2a5a4a;text-shadow:0 0 6px rgba(125,242,197,.6);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{background:#1d3a32}}
+button:disabled{opacity:.35;cursor:default}
+.pad .wide{grid-column:span 2}
+
+/* ---------- panels ---------- */
+.panel{display:none;background:var(--panel);border:3px solid var(--line);border-radius:10px;margin-top:12px;padding:14px;
+  animation:rise .18s ease-out}
+.panel.open{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.panel h2{font-family:'Press Start 2P',monospace;font-size:10px;color:var(--amber);margin-bottom:10px;letter-spacing:1px;
+  display:flex;justify-content:space-between;align-items:center}
+.panel h2 .x{cursor:pointer;color:var(--dim);font-size:10px;padding:4px}
+.panel h2 .x:hover{color:var(--bone)}
+
+/* chat */
+#chatLog{height:230px;overflow-y:auto;background:#0a0f1d;border:1px solid var(--line);border-radius:4px;padding:10px;
+  display:flex;flex-direction:column;gap:8px;font-size:19px;line-height:1.15}
+.msg{max-width:88%;padding:6px 10px;border-radius:4px;white-space:pre-wrap}
+.msg.you{align-self:flex-end;background:var(--panel2);border:1px solid var(--line)}
+.msg.pet{align-self:flex-start;background:#10281f;border:1px solid #2a5a4a;color:var(--phosphor)}
+.msg.sys{align-self:center;color:var(--dim);font-size:16px;background:none}
+.chatRow{display:flex;gap:8px;margin-top:10px}
+input[type=text]{flex:1;background:#0a0f1d;border:2px solid var(--line);border-radius:4px;color:var(--bone);
+  font-family:'VT323',monospace;font-size:20px;padding:8px 10px;outline:none}
+input[type=text]:focus{border-color:var(--phos-dim)}
+.chatRow button{padding:8px 14px}
+
+/* lists */
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#0e1428;border:1px solid var(--line);
+  border-radius:5px;padding:10px 12px;font-size:19px;line-height:1.15}
+.item .d{color:var(--dim);font-size:16px;display:block}
+.item button{flex-shrink:0}
+.memlog{height:260px;overflow-y:auto;background:#0a0f1d;border:1px solid var(--line);border-radius:4px;padding:10px;
+  font-size:18px;line-height:1.35}
+.memlog .m{margin-bottom:6px;border-left:2px solid var(--line);padding-left:8px}
+.memlog .m.good{border-color:var(--phos-dim)}
+.memlog .m.bad{border-color:#7a3a3a}
+.memlog .m.major{border-color:var(--amber)}
+.memlog .t{color:var(--dim);font-size:14px}
+
+/* battle */
+#battleArena{display:flex;justify-content:space-around;align-items:center;background:#0a0f1d;border:1px solid var(--line);
+  border-radius:6px;padding:14px 6px;margin-bottom:10px}
+#battleArena .fighter{text-align:center;font-size:16px;color:var(--dim)}
+#battleArena canvas{width:96px;height:96px}
+#battleArena .vs{font-family:'Press Start 2P',monospace;color:var(--glitch);font-size:14px}
+#battleLog{height:140px;overflow-y:auto;font-size:18px;line-height:1.3;background:#0a0f1d;border:1px solid var(--line);
+  border-radius:4px;padding:8px 10px}
+#battleLog div{margin-bottom:3px}
+.hpbar{height:8px;width:96px;background:#222;border:1px solid var(--line);margin:4px auto}
+.hpbar i{display:block;height:100%;background:var(--phosphor);transition:width .3s}
+
+/* toast + hatch */
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(80px);background:var(--panel2);
+  border:2px solid var(--amber);color:var(--bone);padding:10px 18px;border-radius:6px;font-size:19px;z-index:50;
+  transition:transform .25s;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.center{text-align:center}
+.small{font-size:16px;color:var(--dim)}
+.glitchTxt{color:var(--glitch);text-shadow:0 0 8px rgba(255,79,216,.6)}
+hr.div{border:none;border-top:1px dashed var(--line);margin:12px 0}
+textarea{width:100%;background:#0a0f1d;border:2px solid var(--line);border-radius:4px;color:var(--bone);
+  font-family:'VT323',monospace;font-size:17px;padding:8px;resize:vertical}
+@media (max-width:380px){ .pad{grid-template-columns:repeat(2,1fr)} .pad .wide{grid-column:span 1} }
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="bezel">
+    <div class="brand">DATAKEEPER<small>DIGITAL LIFEFORM TERMINAL v2.6</small></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="bits">◈ <span id="bits">0</span></div>
+      <button id="btnCfg" title="AI config" style="padding:9px 10px">⚙</button>
+    </div>
+  </div>
+
+  <div class="crt-wrap">
+    <div class="crt" id="crt">
+      <div id="nameplate"></div>
+      <div id="stageTag"></div>
+      <div id="stage">
+        <div id="spriteBox">
+          <div class="shadow"></div>
+          <canvas id="petCanvas" class="pix" width="32" height="32" title="tap your creature"></canvas>
+          <div id="moodBubble"></div>
+        </div>
+      </div>
+      <div id="screenMsg"></div>
+      <div id="awayOverlay">
+        <div class="qz" id="awayTitle">ON EXPEDITION</div>
+        <div class="timer" id="awayTimer">0:00</div>
+        <div class="small" id="awayZone"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="meters">
+    <div class="meter"><label>HUNGER <b id="vHunger"></b></label><div class="bar"><i id="bHunger"></i></div></div>
+    <div class="meter"><label>JOY <b id="vHappy"></b></label><div class="bar"><i id="bHappy"></i></div></div>
+    <div class="meter"><label>ENERGY <b id="vEnergy"></b></label><div class="bar"><i id="bEnergy"></i></div></div>
+    <div class="meter"><label>BOND <b id="vBond"></b></label><div class="bar"><i id="bBond" class="bond"></i></div></div>
+  </div>
+
+  <div class="pad">
+    <button id="btnFeed">FEED</button>
+    <button id="btnPlay">PLAY</button>
+    <button id="btnTrain">TRAIN</button>
+    <button id="btnTalk" class="glow">TALK</button>
+    <button id="btnQuest">QUEST</button>
+    <button id="btnBattle">BATTLE</button>
+    <button id="btnShop" class="amber">SHOP</button>
+    <button id="btnMem">MEMORY</button>
+    <button id="btnArt" class="amber">ART</button>
+    <button id="btnEvolve" class="glow wide" style="display:none">⊚ EVOLVE</button>
+  </div>
+
+  <!-- TALK -->
+  <div class="panel" id="pTalk">
+    <h2>UPLINK · TALK <span class="x" data-close="pTalk">[X]</span></h2>
+    <div id="chatLog"></div>
+    <div class="chatRow">
+      <input type="text" id="chatInput" maxlength="200" placeholder="say something...">
+      <button id="chatSend">SEND</button>
+    </div>
+  </div>
+
+  <!-- TRAIN -->
+  <div class="panel" id="pTrain">
+    <h2>TRAINING DECK <span class="x" data-close="pTrain">[X]</span></h2>
+    <div class="list" id="trainList"></div>
+    <hr class="div"><div class="small center" id="statLine"></div>
+  </div>
+
+  <!-- QUEST -->
+  <div class="panel" id="pQuest">
+    <h2>EXPEDITIONS <span class="x" data-close="pQuest">[X]</span></h2>
+    <div class="list" id="questList"></div>
+  </div>
+
+  <!-- BATTLE -->
+  <div class="panel" id="pBattle">
+    <h2>ARENA LINK <span class="x" data-close="pBattle">[X]</span></h2>
+    <div id="battleArena">
+      <div class="fighter"><canvas id="meCanvas" class="pix" width="32" height="32"></canvas><div class="hpbar"><i id="meHp"></i></div><div id="meName"></div></div>
+      <div class="vs">VS</div>
+      <div class="fighter"><canvas id="foeCanvas" class="pix" width="32" height="32"></canvas><div class="hpbar"><i id="foeHp"></i></div><div id="foeName"></div></div>
+    </div>
+    <div id="battleLog"></div>
+    <div class="chatRow"><button id="btnFight" style="flex:1">ENGAGE (−15 ENERGY)</button><button id="btnNewFoe">SCAN NEW</button></div>
+  </div>
+
+  <!-- SHOP -->
+  <div class="panel" id="pShop">
+    <h2>BLACK-ICE BAZAAR <span class="x" data-close="pShop">[X]</span></h2>
+    <div class="list" id="shopList"></div>
+  </div>
+
+  <!-- MEMORY -->
+  <div class="panel" id="pMem">
+    <h2>MEMORY CORE <span class="x" data-close="pMem">[X]</span></h2>
+    <div class="memlog" id="memLog"></div>
+    <hr class="div">
+    <div class="small">CREATURE CODE — share it; no one else has this exact lifeform. Paste a friend's code to adopt theirs (replaces current creature).</div>
+    <textarea id="codeBox" rows="2" spellcheck="false"></textarea>
+    <div class="chatRow"><button id="btnCopyCode" style="flex:1">COPY CODE</button><button id="btnLoadCode">ADOPT CODE</button></div>
+  </div>
+  <!-- AI CONFIG -->
+  <div class="panel" id="pConfig">
+    <h2>AI CONFIG <span class="x" data-close="pConfig">[X]</span></h2>
+    <div class="list">
+      <div class="item"><span>Mind backend<span class="d">what powers your creature's brain</span></span>
+        <select id="cfgBackend" style="background:#0a0f1d;color:var(--bone);border:2px solid var(--line);font-family:'VT323',monospace;font-size:18px;padding:6px">
+          <option value="ollama">Ollama (local)</option>
+          <option value="claude">Claude API</option>
+        </select>
+      </div>
+      <div class="item" id="rowOllamaUrl"><span style="flex:1">Ollama URL
+        <input type="text" id="cfgOllamaUrl" placeholder="http://localhost:11434" style="width:100%;margin-top:4px"></span>
+      </div>
+      <div class="item" id="rowOllamaModel"><span style="flex:1">Model
+        <div class="chatRow" style="margin-top:4px">
+          <select id="cfgModel" style="flex:1;background:#0a0f1d;color:var(--bone);border:2px solid var(--line);font-family:'VT323',monospace;font-size:18px;padding:6px"></select>
+          <button id="btnModels">SCAN</button>
+        </div></span>
+      </div>
+      <div class="item"><span style="flex:1">Image-gen URL (A1111/Forge API, optional)
+        <input type="text" id="cfgSdUrl" placeholder="http://127.0.0.1:7860" style="width:100%;margin-top:4px"></span>
+      </div>
+      <div class="chatRow"><button id="btnTestAI" style="flex:1">TEST MIND</button><button id="btnSaveCfg" class="glow">SAVE</button></div>
+      <div class="small" id="cfgStatus"></div>
+    </div>
+    <hr class="div">
+    <div class="small">
+      LOCAL SETUP — the page must be allowed to reach your machine:<br>
+      1. Run Ollama with CORS open: <b>OLLAMA_ORIGINS="*" ollama serve</b> (Windows: set env var OLLAMA_ORIGINS=* then restart Ollama).<br>
+      2. Pull a small fast model, e.g. <b>ollama pull llama3.2:3b</b> or <b>qwen2.5:3b</b>, then hit SCAN.<br>
+      3. For portraits, launch A1111/Forge with <b>--api --cors-allow-origins=*</b>.<br>
+      4. If your browser blocks localhost from this page, download this HTML file and open it locally — everything works offline.
+    </div>
+  </div>
+
+  <!-- PORTRAIT LAB -->
+  <div class="panel" id="pArt">
+    <h2>PORTRAIT LAB <span class="x" data-close="pArt">[X]</span></h2>
+    <div class="center">
+      <img id="portraitImg" alt="" style="display:none;max-width:100%;border:3px solid var(--line);border-radius:6px;image-rendering:pixelated">
+      <div id="portraitEmpty" class="small" style="padding:20px 6px">No portrait yet. The lab will compose a prompt from your creature's species, element, traits and stage, and send it to your local image model.</div>
+    </div>
+    <div class="chatRow"><button id="btnGenArt" style="flex:1">PAINT PORTRAIT (local img-gen)</button></div>
+    <div class="small center" id="artStatus"></div>
+  </div>
+
+</div>
+<div id="toast"></div>
+<script>
+/* =====================================================
+   DATAKEEPER — procedural AI virtual pet
+   ===================================================== */
+
+/* ---------- seeded RNG ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+const pick=(r,arr)=>arr[Math.floor(r()*arr.length)];
+const ri=(r,a,b)=>a+Math.floor(r()*(b-a+1));
+
+/* ---------- lore tables ---------- */
+const ELEMENTS=["EMBER","VOLT","FROST","ROT","RUNE","VOID","CHROME","BLOOM"];
+const ELEM_HUES={EMBER:[8,28],VOLT:[48,60],FROST:[185,210],ROT:[85,120],RUNE:[265,290],VOID:[225,250],CHROME:[195,215],BLOOM:[300,330]};
+const BODY_TYPES=["blob","beast","eye","serpent","armor","wisp","mech"];
+const SYL_A=["Gor","Mek","Zu","Vyr","Okk","Pix","Dra","Nul","Bex","Yam","Quo","Riz","Tek","Mau","Sol","Gli"];
+const SYL_B=["ra","mon","byte","goth","lune","zik","veth","oss","ump","ixi","dra","nok","phi","rrl","tau","mu"];
+const SYL_C=["","","","x","s","n","th","r"];
+const TRAITS=["timid","boastful","gentle","feral","scholarly","mischievous","melancholic","fiercely loyal","greedy","dreamy","paranoid","stoic","theatrical","curious"];
+const SPEECH=["speaks in short clipped fragments","talks in flowery old-world prose","peppers speech with static noises like *bzzt* and *krrk*","speaks softly with lots of ellipses...","talks fast and excitedly with !!","speaks in calm, riddling koans","uses gamer-ish slang it half-understands","refers to itself in the third person"];
+const STAGE_NAMES=["EGG","HATCHLING","ADULT","MYTHIC"];
+const MOODS={ecstatic:"♪",happy:"♥",ok:"·",hungry:"…",tired:"z",sad:"☂",glitchy:"#"};
+
+function makeName(r){return pick(r,SYL_A)+pick(r,SYL_B)+pick(r,SYL_C)}
+function makeSpecies(r,elem,body){
+  const adj={blob:"Amorph",beast:"Fang",eye:"Oculo",serpent:"Wyrm",armor:"Plate",wisp:"Haunt",mech:"Gear"};
+  return elem.charAt(0)+elem.slice(1).toLowerCase()+" "+adj[body]+"-type";
+}
+
+/* ---------- color helpers ---------- */
+function hsl(h,s,l){return `hsl(${h},${s}%,${l}%)`}
+function makePalette(r,elem,glitch,stage){
+  const [h0,h1]=ELEM_HUES[elem];const h=ri(r,h0,h1);
+  const sat=ri(r,55,85);
+  const pal=[null,
+    hsl(h,Math.min(95,sat+5),18),          /* 1 outline/dark */
+    hsl(h,sat,38),                          /* 2 shade */
+    hsl(h,sat,55),                          /* 3 base */
+    hsl((h+ri(r,18,50))%360,sat,68),        /* 4 accent */
+    hsl((h+180+ri(r,-20,20))%360,90,72),    /* 5 eye/bright */
+    hsl(h,30,88)                            /* 6 highlight */
+  ];
+  if(glitch)pal[4]="hsl(312,100%,62%)";
+  if(stage>=3)pal[6]=hsl((h+ri(r,140,220))%360,95,80); /* mythic gains exotic highlight */
+  return pal;
+}
+
+/* ---------- sprite generator: 32x32, mirrored ---------- */
+function genSprite(seed,stage,glitch){
+  const r=mulberry32(seed+stage*7919);
+  const W=32,H=32,HALF=16;
+  const g=Array.from({length:H},()=>new Array(W).fill(0));
+  const body=BODY_TYPES[seed%BODY_TYPES.length];
+  const size=[7,10,13,15][stage];           /* radius-ish, grows per stage */
+  const cy=17, cx=15;                        /* center of left half mirror axis at 15/16 */
+
+  /* base mask per body type (fill left half, mirror later) */
+  function inMask(x,y){
+    const dx=cx-x, dy=y-cy;
+    switch(body){
+      case "blob":   return dx*dx/(size*size)+dy*dy/(size*size*0.8)<1;
+      case "beast":  return dx*dx/(size*size*0.9)+(dy+2)*(dy+2)/(size*size)<1;
+      case "eye":    return dx*dx+dy*dy<size*size;
+      case "serpent":return Math.abs(dy - Math.sin(x*0.7+seed%7)*3)<3+stage && x>15-size-3;
+      case "armor":  return Math.abs(dx)<size-1 && Math.abs(dy)<size-2;
+      case "wisp":   return dx*dx/(size*size)+dy*dy/(size*size)<1 && y<cy+size-2-((x*3+seed)%4);
+      case "mech":   return (Math.abs(dx)<size-2&&Math.abs(dy)<size-4)||(Math.abs(dx)<size-6&&Math.abs(dy)<size-1);
+    }
+  }
+  /* noisy fill */
+  for(let y=2;y<H-2;y++)for(let x=0;x<=HALF;x++){
+    if(inMask(x,y)&&r()>0.18)g[y][x]=3;
+  }
+  /* cellular smoothing x2 */
+  for(let p=0;p<2;p++){
+    const ng=g.map(row=>row.slice());
+    for(let y=1;y<H-1;y++)for(let x=1;x<=HALF;x++){
+      let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(g[y+dy][x+dx])n++;
+      ng[y][x]=n>=5?3:(n<=2?0:g[y][x]);
+    }
+    for(let y=0;y<H;y++)for(let x=0;x<=HALF;x++)g[y][x]=ng[y][x];
+  }
+  /* shading: bottom/left = shade, top sparkle = highlight */
+  for(let y=2;y<H-2;y++)for(let x=0;x<=HALF;x++){
+    if(g[y][x]!==3)continue;
+    if(!g[y+1][x]||!g[y][x-1])g[y][x]=2;
+    else if(!g[y-1][x]&&r()<0.5)g[y][x]=6;
+    else if(r()<0.06)g[y][x]=4;
+  }
+  /* accents per stage: stripes/cores */
+  const accents=stage+1;
+  for(let a=0;a<accents;a++){
+    const ax=ri(r,8,HALF),ay=ri(r,8,H-8);
+    for(let d=0;d<ri(r,2,4+stage);d++){const yy=ay+d;if(yy<H&&g[yy][ax]===3)g[yy][ax]=4;}
+  }
+  /* eyes */
+  const eyeY=body==="eye"?cy:cy-ri(r,1,4);
+  const eyeX=body==="eye"?cx-1:cx-ri(r,2,5);
+  const eyeSize=body==="eye"?3:1;
+  for(let dy=0;dy<eyeSize;dy++)for(let dx=0;dx<eyeSize;dx++){
+    if(eyeY+dy<H&&eyeX+dx>=0){g[eyeY+dy][eyeX+dx]=5;}
+  }
+  if(body==="eye")g[eyeY+1][eyeX+1]=1;
+  /* appendages: horns/antenna/ears/spikes — count grows with stage */
+  const apCount=ri(r,1,1+stage);
+  for(let a=0;a<apCount;a++){
+    const kind=pick(r,["horn","antenna","spike","tail","halo"]);
+    if(kind==="horn"||kind==="antenna"){
+      let x=ri(r,9,14),y=cy-size+1;
+      const len=ri(r,2,3+stage*2);
+      for(let d=0;d<len&&y-d>0;d++){g[y-d][x]= d===len-1?4:2; if(kind==="antenna"&&r()<0.4)x+= r()<0.5?-1:0;}
+      if(kind==="antenna")g[Math.max(0,y-len)][x]=5;
+    }else if(kind==="spike"){
+      const x=ri(r,5,12);let y=cy;while(y<H-1&&g[y][x])y++;
+      for(let d=0;d<ri(r,2,3);d++)if(y+d<H)g[y+d][x]=2;
+    }else if(kind==="tail"&&stage>=1){
+      let y=cy+ri(r,0,3);for(let x=Math.max(0,9-size);x<13;x++){if(y>2&&y<H-2)g[y][x]=g[y][x]||2;y+=r()<0.5?-1:1;}
+    }else if(kind==="halo"&&stage>=2){
+      const hy=Math.max(1,cy-size-3);
+      for(let x=10;x<=HALF;x++)if(r()<0.85)g[hy][x]=6;
+    }
+  }
+  /* mirror */
+  for(let y=0;y<H;y++)for(let x=0;x<HALF;x++)g[y][31-x]=g[y][x];
+  /* asymmetry breaker for character (small) */
+  if(r()<0.6){const yy=ri(r,6,26),xx=ri(r,18,29);if(g[yy][xx])g[yy][xx]=4;}
+  /* outline */
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(!g[y][x])continue;
+    if(y===0||y===H-1||x===0||x===W-1||!g[y-1][x]||!g[y+1][x]||!g[y][x-1]||!g[y][x+1]){
+      if(g[y][x]!==5)g[y][x]= g[y][x]===6?6:( (!g[y+1]||!g[y+1][x])||!g[y][x-1]||!g[y][x+1]||(y>0&&!g[y-1][x]) ? (g[y][x]===2||r()<0.7?1:g[y][x]) : g[y][x]);
+    }
+  }
+  /* glitch corruption pass */
+  if(glitch){
+    const rows=ri(r,2,4);
+    for(let i=0;i<rows;i++){
+      const y=ri(r,4,27),shift=ri(r,1,3)*(r()<0.5?-1:1);
+      const row=g[y].slice();
+      for(let x=0;x<W;x++)g[y][(x+shift+W)%W]=row[x];
+    }
+    for(let i=0;i<10;i++){const y=ri(r,2,29),x=ri(r,2,29);if(g[y][x])g[y][x]=4;}
+  }
+  return g;
+}
+function genEgg(seed){
+  const r=mulberry32(seed);const g=Array.from({length:32},()=>new Array(32).fill(0));
+  for(let y=8;y<28;y++)for(let x=0;x<16;x++){
+    const dx=15-x,dy=y-19;
+    if(dx*dx/49+dy*dy/81<1)g[y][x]= (!((dx*dx/49+(dy-1)*(dy-1)/81)<0.86))?1:((x+y+ (seed%5))%6<2?4:3);
+  }
+  for(let y=0;y<32;y++)for(let x=0;x<16;x++)g[y][31-x]=g[y][x];
+  return g;
+}
+function drawGrid(canvas,grid,pal){
+  const ctx=canvas.getContext("2d");ctx.clearRect(0,0,32,32);
+  for(let y=0;y<32;y++)for(let x=0;x<32;x++){
+    const v=grid[y][x];if(!v)continue;ctx.fillStyle=pal[v]||"#000";ctx.fillRect(x,y,1,1);
+  }
+}
+
+/* ---------- game state ---------- */
+let S=null; let palette=null; let foe=null; let busyChat=false;
+const $=id=>document.getElementById(id);
+const now=()=>Date.now();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function newCreature(seed){
+  const r=mulberry32(seed);
+  const elem=ELEMENTS[seed%ELEMENTS.length];
+  const body=BODY_TYPES[seed%BODY_TYPES.length];
+  const rare=r()<0.08, glitch=r()<0.10;
+  return {
+    v:1, seed, name:makeName(r), species:makeSpecies(r,elem,body), elem, body,
+    rare, glitch, stage:0, level:1, xp:0,
+    traits:[pick(r,TRAITS),pick(r,TRAITS)], speech:pick(r,SPEECH),
+    hunger:80, happy:70, energy:90, bond:10,
+    power:ri(r,3,7), guard:ri(r,3,7), speed:ri(r,3,7),
+    bits:30, inv:{ration:2,sweet:1,tonic:0}, habitat:1,
+    memories:[], chat:[], wins:0, losses:0, hatchTaps:0,
+    born:now(), lastSeen:now(), quest:null
+  };
+}
+function addMem(text,kind="info"){
+  S.memories.push({t:now(),text,kind});
+  if(S.memories.length>120)S.memories=S.memories.slice(-120);
+  save();
+}
+const fmtT=t=>new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+
+/* ---------- persistence ---------- */
+let saveTimer=null;
+function save(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{
+  S.lastSeen=now();
+  try{await window.storage.set("datakeeper:save",JSON.stringify(S));}catch(e){}
+},400)}
+async function load(){
+  try{const res=await window.storage.get("datakeeper:save");
+    if(res&&res.value)return JSON.parse(res.value);}catch(e){}
+  return null;
+}
+
+/* ---------- offline decay ---------- */
+function applyOffline(){
+  const mins=Math.floor((now()-S.lastSeen)/60000);
+  if(mins<3)return;
+  const d=Math.min(mins,720); // cap at 12h worth
+  S.hunger=clamp(S.hunger-d*0.08,0,100);
+  S.energy=clamp(S.energy+d*0.05,0,100); // rests while away
+  S.happy=clamp(S.happy-d*0.05,0,100);
+  if(mins>360){S.bond=clamp(S.bond-3,0,100);
+    addMem(`You were gone for ${Math.floor(mins/60)} hours. ${S.name} waited by the screen edge.`,"bad");}
+  else if(mins>30)addMem(`You were away ${mins} minutes. ${S.name} napped.`,"info");
+}
+
+/* ---------- rendering ---------- */
+function moodOf(){
+  if(S.stage===0)return "ok";
+  if(S.glitch&&Math.random()<0.15)return "glitchy";
+  if(S.hunger<25)return "hungry";
+  if(S.energy<20)return "tired";
+  if(S.happy<30)return "sad";
+  if(S.happy>80&&S.bond>60)return "ecstatic";
+  if(S.happy>60)return "happy";
+  return "ok";
+}
+function redrawPet(){
+  palette=makePalette(mulberry32(S.seed),S.elem,S.glitch,S.stage);
+  const grid=S.stage===0?genEgg(S.seed):genSprite(S.seed,S.stage,S.glitch);
+  drawGrid($("petCanvas"),grid,palette);
+  drawGrid($("meCanvas"),grid,palette);
+}
+function renderUI(){
+  $("bits").textContent=S.bits;
+  $("nameplate").innerHTML=S.stage===0?`???<br><span class="sp">unhatched datacore</span>`:
+    `${S.name}${S.rare?" ✦":""}${S.glitch?' <span class="glitchTxt">§</span>':""}<br><span class="sp">${S.species} · Lv${S.level}</span>`;
+  $("stageTag").textContent=STAGE_NAMES[S.stage];
+  const bars=[["Hunger","hunger"],["Happy","happy"],["Energy","energy"],["Bond","bond"]];
+  for(const [cap,k] of bars){
+    const v=Math.round(S[k]);
+    $("v"+cap).textContent=v;
+    const el=$("b"+cap);el.style.width=v+"%";
+    if(k!=="bond")el.classList.toggle("low",v<25);
+  }
+  const m=moodOf();
+  const mb=$("moodBubble");mb.textContent=MOODS[m];mb.classList.add("show");
+  const pc=$("petCanvas");
+  pc.classList.toggle("sad",m==="sad"||m==="tired");
+  pc.classList.toggle("hyper",m==="ecstatic");
+  $("crt").classList.toggle("glitching",S.glitch&&Math.random()<0.25);
+  $("btnEvolve").style.display=canEvolve()?"block":"none";
+  $("statLine").textContent=`PWR ${S.power} · GRD ${S.guard} · SPD ${S.speed} · XP ${S.xp}/${xpNeed()}`;
+  // quest overlay
+  if(S.quest){
+    $("awayOverlay").classList.add("show");
+    $("awayZone").textContent=S.quest.zone;
+    const left=Math.max(0,Math.ceil((S.quest.ends-now())/1000));
+    $("awayTimer").textContent=Math.floor(left/60)+":"+String(left%60).padStart(2,"0");
+  }else $("awayOverlay").classList.remove("show");
+}
+function screenSay(t,ms=3500){
+  $("screenMsg").textContent=t;
+  clearTimeout(screenSay._t);
+  screenSay._t=setTimeout(()=>$("screenMsg").textContent="",ms);
+}
+function toast(t){const el=$("toast");el.textContent=t;el.classList.add("show");
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove("show"),2600)}
+
+/* ---------- progression ---------- */
+const xpNeed=()=>S.level*20;
+function gainXp(n){S.xp+=n;while(S.xp>=xpNeed()){S.xp-=xpNeed();S.level++;
+  screenSay(`${S.name} reached Lv${S.level}!`);addMem(`Reached level ${S.level}.`,"good");}}
+function canEvolve(){
+  if(S.stage===0||S.stage>=3||S.quest)return false;
+  if(S.stage===1)return S.level>=4&&S.bond>=35;
+  if(S.stage===2)return S.level>=9&&S.bond>=65;
+}
+function evolve(){
+  if(!canEvolve())return;
+  S.stage++;
+  if(Math.random()<0.12&&!S.glitch){S.glitch=true;addMem(`Something went wrong — or right. ${S.name} came out of evolution CORRUPTED. It seems… pleased.`,"major");}
+  redrawPet();renderUI();
+  screenSay(`⊚ ${S.name} evolved to ${STAGE_NAMES[S.stage]} form!`,5000);
+  addMem(`EVOLVED into ${STAGE_NAMES[S.stage]} form. Its silhouette changed completely.`,"major");
+  S.happy=clamp(S.happy+20,0,100);S.bond=clamp(S.bond+5,0,100);
+  petSpeak(`You just evolved into your ${STAGE_NAMES[S.stage]} form in front of your keeper. React in character — surprise, pride, new power, whatever fits you.`);
+  save();
+}
+
+/* ---------- hatch ---------- */
+function tapPet(){
+  if(S.quest)return;
+  if(S.stage===0){
+    S.hatchTaps++;
+    screenSay(["…something stirs.","the shell cracks…","a light inside!"][Math.min(S.hatchTaps-1,2)]);
+    $("petCanvas").style.transform=`rotate(${(Math.random()*10-5)}deg)`;
+    setTimeout(()=>$("petCanvas").style.transform="",200);
+    if(S.hatchTaps>=3){
+      S.stage=1;redrawPet();renderUI();
+      screenSay(`${S.name} hatched!! (${S.species})`,5000);
+      addMem(`HATCHED. First thing it saw was you. Traits: ${S.traits.join(", ")}.`,"major");
+      if(S.rare)addMem("Anomaly detected: this lifeform carries a RARE signature ✦","major");
+      if(S.glitch)addMem("Warning: datacore partially corrupted. Lifeform is a GLITCH variant §","major");
+      petSpeak("You have just hatched from your egg and are seeing your keeper for the very first time. Introduce yourself briefly in character.");
+    }
+    save();return;
+  }
+  S.happy=clamp(S.happy+2,0,100);S.bond=clamp(S.bond+0.5,0,100);
+  screenSay(pick(Math.random,["*"+S.name+" wiggles*","*happy static*","*"+S.name+" leans into the glass*","*blinks at you*"]),1800);
+  renderUI();save();
+}
+
+/* ---------- actions ---------- */
+function needAwake(){if(S.stage===0){toast("It hasn't hatched yet — tap the egg!");return false}
+  if(S.quest){toast(S.name+" is away on an expedition.");return false}return true}
+
+function feed(kind){
+  if(!needAwake())return;
+  if(kind==="ration"){if(S.inv.ration<1)return toast("No rations — visit the SHOP.");
+    S.inv.ration--;S.hunger=clamp(S.hunger+30,0,100);S.bond=clamp(S.bond+1,0,100);
+    screenSay(`*${S.name} devours the data-ration*`);addMem("Fed a data-ration.","good");}
+  if(kind==="sweet"){if(S.inv.sweet<1)return toast("No glowberries left.");
+    S.inv.sweet--;S.hunger=clamp(S.hunger+10,0,100);S.happy=clamp(S.happy+15,0,100);S.bond=clamp(S.bond+2,0,100);
+    screenSay(`*${S.name} savours the glowberry* ♥`);addMem("Got a glowberry treat. It remembers treats.","good");}
+  renderUI();save();
+}
+function play(){
+  if(!needAwake())return;
+  if(S.energy<10)return toast(S.name+" is too tired to play.");
+  S.energy=clamp(S.energy-10,0,100);S.happy=clamp(S.happy+18,0,100);S.bond=clamp(S.bond+3,0,100);
+  S.hunger=clamp(S.hunger-4,0,100);gainXp(2);
+  screenSay(pick(Math.random,["You chase each other across the screen!","*"+S.name+" does a victory spin*","You play hide-and-seek in the static.","*"+S.name+" headbutts the glass affectionately*"]));
+  if(Math.random()<0.25)addMem("Played together. "+S.name+" seemed genuinely happy.","good");
+  renderUI();save();
+}
+const TRAIN_OPTS=[["POWER","power","Smash corrupted blocks"],["GUARD","guard","Endure firewall pressure"],["SPEED","speed","Race packet streams"]];
+function renderTrain(){
+  $("trainList").innerHTML=TRAIN_OPTS.map(([n,k,d],i)=>
+    `<div class="item"><span>${n}<span class="d">${d} · −15 energy, +1 ${n.toLowerCase()}</span></span><button data-train="${k}">GO</button></div>`).join("");
+}
+function train(stat){
+  if(!needAwake())return;
+  if(S.energy<15)return toast("Too tired to train. Rest or use a tonic.");
+  S.energy-=15;S.hunger=clamp(S.hunger-6,0,100);S[stat]++;gainXp(5);
+  const crit=Math.random()<0.12;
+  if(crit){S[stat]++;screenSay(`BREAKTHROUGH! ${stat.toUpperCase()} +2`);addMem(`Training breakthrough in ${stat}. It roared at the ceiling.`,"good");}
+  else screenSay(`${stat.toUpperCase()} +1. *${S.name} pants*`);
+  if(S.happy<40&&Math.random()<0.3)addMem("Trained while unhappy. It's getting a harder edge.","bad");
+  renderUI();save();
+}
+
+/* ---------- quests ---------- */
+const ZONES=[
+  ["The Rusted Server-Tombs",40,"ruin"],["Glitchfen Marsh",50,"glitch"],
+  ["Cathedral of Dead Pixels",60,"ruin"],["The Forest of Hanging Cables",45,"forest"],
+  ["Corrupted Dimension 7F",75,"glitch"],["Sunken Firewall Reef",55,"forest"]
+];
+function renderQuests(){
+  $("questList").innerHTML=ZONES.map(([z,sec],i)=>
+    `<div class="item"><span>${z}<span class="d">${sec}s expedition · loot, XP, rare finds</span></span><button data-quest="${i}">SEND</button></div>`).join("");
+}
+function startQuest(i){
+  if(!needAwake())return;
+  if(S.energy<20)return toast("Needs at least 20 energy for an expedition.");
+  const [zone,sec,kind]=ZONES[i];
+  S.energy-=20;S.quest={zone,kind,ends:now()+sec*1000};
+  closePanels();screenSay("");renderUI();save();
+  toast(S.name+" departs for "+zone+"…");
+}
+function resolveQuest(){
+  const q=S.quest;S.quest=null;
+  const r=Math.random;
+  const bits=ri(r,8,25)+S.level*2;
+  S.bits+=bits;gainXp(ri(r,6,14));
+  S.hunger=clamp(S.hunger-10,0,100);
+  let story;
+  const roll=r();
+  if(roll<0.12){S.inv.sweet+=2;story=`found a cache of glowberries in ${q.zone} (+2 glowberries, +${bits}◈)`;}
+  else if(roll<0.2&&!S.glitch&&q.kind==="glitch"){S.glitch=true;redrawPet();
+    story=`touched something it shouldn't have in ${q.zone}. It returned… changed. GLITCH variant unlocked § (+${bits}◈)`;
+    addMem("It came back from the corrupted zone flickering. It says it can see new colors.","major");}
+  else if(roll<0.35){S.power+=1;story=`fought off a feral process in ${q.zone}. PWR +1, +${bits}◈`;}
+  else if(roll<0.45){S.happy=clamp(S.happy-10,0,100);story=`got lost in ${q.zone} and came home rattled. Still salvaged +${bits}◈`;
+    addMem(`Bad expedition in ${q.zone}. It was shaken when it returned.`,"bad");}
+  else story=`explored ${q.zone} and returned with salvage. +${bits}◈`;
+  screenSay(`${S.name} returned!`,4000);
+  addMem(`Expedition: ${story}`,"info");
+  toast("Expedition complete: +"+bits+"◈");
+  renderUI();save();
+}
+
+/* ---------- battle ---------- */
+function newFoe(){
+  const seed=(Math.random()*0xFFFFFFFF)>>>0;
+  const stage=clamp(S.stage+(Math.random()<0.3?1:0),1,3);
+  const r=mulberry32(seed);
+  foe={seed,stage,glitch:r()<0.15,elem:ELEMENTS[seed%ELEMENTS.length],
+    name:makeName(r),hp:18+S.level*4+ri(r,0,8),maxhp:0,
+    power:S.power+ri(r,-2,3),guard:S.guard+ri(r,-2,2),speed:S.speed+ri(r,-2,3)};
+  foe.maxhp=foe.hp;
+  const pal=makePalette(mulberry32(seed),foe.elem,foe.glitch,foe.stage);
+  drawGrid($("foeCanvas"),genSprite(seed,foe.stage,foe.glitch),pal);
+  $("foeName").textContent="wild "+foe.name;
+  $("meName").textContent=S.name;
+  $("foeHp").style.width="100%";$("meHp").style.width="100%";
+  $("battleLog").innerHTML="<div>A wild "+foe.name+" flickers into the arena…</div>";
+}
+function fight(){
+  if(!needAwake())return;
+  if(S.energy<15)return toast("Too tired to battle.");
+  if(!foe)newFoe();
+  S.energy-=15;
+  let myHp=20+S.level*4+S.guard, myMax=myHp, fHp=foe.hp;
+  const log=$("battleLog");log.innerHTML="";
+  const lines=[];
+  let meFirst=S.speed>=foe.speed;
+  let turn=0;
+  while(myHp>0&&fHp>0&&turn<24){
+    turn++;
+    const atk=(a,d)=>Math.max(1,a+ri(Math.random,0,4)-Math.floor(d/3));
+    if(meFirst){fHp-=atk(S.power,foe.guard);lines.push([`${S.name} strikes! foe HP ${Math.max(0,fHp)}`,fHp/foe.maxhp,null]);
+      if(fHp<=0)break;
+      myHp-=atk(foe.power,S.guard);lines.push([`${foe.name} counters! your HP ${Math.max(0,myHp)}`,null,myHp/myMax]);}
+    else{myHp-=atk(foe.power,S.guard);lines.push([`${foe.name} strikes! your HP ${Math.max(0,myHp)}`,null,myHp/myMax]);
+      if(myHp<=0)break;
+      fHp-=atk(S.power,foe.guard);lines.push([`${S.name} counters! foe HP ${Math.max(0,fHp)}`,fHp/foe.maxhp,null]);}
+  }
+  const won=fHp<=0;
+  let i=0;
+  const step=()=>{
+    if(i<lines.length){const [t,f,m]=lines[i++];
+      log.innerHTML+=`<div>${t}</div>`;log.scrollTop=log.scrollHeight;
+      if(f!=null)$("foeHp").style.width=Math.max(0,f*100)+"%";
+      if(m!=null)$("meHp").style.width=Math.max(0,m*100)+"%";
+      setTimeout(step,260);return;}
+    if(won){const reward=12+foe.stage*8;S.bits+=reward;S.wins++;gainXp(10);
+      S.happy=clamp(S.happy+8,0,100);
+      log.innerHTML+=`<div style="color:var(--phosphor)">VICTORY! +${reward}◈ +10xp</div>`;
+      addMem(`Defeated a wild ${foe.name} in the arena. Win #${S.wins}.`, S.wins%5===0?"major":"good");
+      if(S.wins===3)addMem("Three wins now. It's started practicing attacks against its own reflection.","info");}
+    else{S.losses++;S.happy=clamp(S.happy-12,0,100);
+      log.innerHTML+=`<div style="color:var(--bad)">DEFEAT. ${S.name} limps back.</div>`;
+      addMem(`Lost to a wild ${foe.name}. It sulked afterwards.`,"bad");}
+    log.scrollTop=log.scrollHeight;foe=null;
+    setTimeout(newFoe,900);renderUI();save();
+  };
+  step();
+}
+
+/* ---------- shop ---------- */
+const SHOP=[
+  {k:"ration",n:"Data-Ration",d:"+30 hunger",p:8,act:s=>s.inv.ration++},
+  {k:"sweet",n:"Glowberry",d:"+10 hunger, +15 joy, +bond",p:12,act:s=>s.inv.sweet++},
+  {k:"tonic",n:"Static Tonic",d:"restore energy to full",p:18,act:s=>{s.energy=100}},
+  {k:"hab",n:"Habitat Expansion",d:"upgrade den · +joy floor, cozier idle",p:60,act:s=>{s.habitat++;s.happy=clamp(s.happy+15,0,100)}},
+  {k:"prism",n:"Mutation Prism",d:"reroll color signature (keeps soul)",p:45,act:s=>{s.seed=(s.seed+ri(Math.random,1,9999))>>>0;redrawPet()}},
+];
+function renderShop(){
+  $("shopList").innerHTML=SHOP.map((it,i)=>{
+    const own=it.k==="ration"?` ×${S.inv.ration}`:it.k==="sweet"?` ×${S.inv.sweet}`:it.k==="hab"?` (Lv${S.habitat})`:"";
+    return `<div class="item"><span>${it.n}${own}<span class="d">${it.d}</span></span><button data-buy="${i}" class="amber">${it.p}◈</button></div>`;
+  }).join("");
+}
+function buy(i){
+  const it=SHOP[i];
+  if(S.bits<it.p)return toast("Not enough ◈ — run an expedition or battle.");
+  S.bits-=it.p;it.act(S);
+  if(it.k==="hab")addMem(`Habitat upgraded to level ${S.habitat}. ${S.name} explored every corner.`,"good");
+  if(it.k==="prism")addMem("A Mutation Prism rewrote its colors. Same soul, new skin.","major");
+  toast(it.n+" acquired.");renderShop();renderUI();save();
+}
+
+/* ---------- memory panel + creature codes ---------- */
+function renderMem(){
+  const log=$("memLog");
+  log.innerHTML=S.memories.length?S.memories.slice().reverse().map(m=>
+    `<div class="m ${m.kind}"><span class="t">${fmtT(m.t)}</span><br>${m.text}</div>`).join("")
+    :'<div class="small">No memories yet. Everything you do together is written here — and your creature reads it.</div>';
+  $("codeBox").value=`DK1:${S.seed.toString(36)}:${S.stage}:${S.glitch?1:0}:${S.name}`;
+}
+function adoptCode(){
+  const v=$("codeBox").value.trim();
+  const m=v.match(/^DK1:([0-9a-z]+):(\d):([01]):(.+)$/);
+  if(!m)return toast("That code doesn't parse. Format: DK1:xxxx:stage:glitch:Name");
+  if(!confirm("Adopt this creature? Your current creature and ALL its memories will be released."))return;
+  S=newCreature(parseInt(m[1],36)>>>0);
+  S.stage=clamp(parseInt(m[2]),0,3);S.glitch=m[3]==="1";S.name=m[4].slice(0,16);
+  S.hatchTaps=S.stage>0?3:0;
+  addMem(`Adopted via creature code from another keeper. ${S.name} arrived wary of its new home.`,"major");
+  redrawPet();renderUI();renderMem();save();
+  toast(S.name+" has been transferred to your terminal.");
+}
+
+/* ---------- AI personality (Claude uplink) ---------- */
+function personaPrompt(){
+  const mood=moodOf();
+  const recent=S.memories.slice(-15).map(m=>`- [${fmtT(m.t)}] ${m.text}`).join("\n")||"- (no memories yet)";
+  return `You are ${S.name}, a small digital creature living inside a handheld virtual-pet terminal called a DATAKEEPER. You are NOT an AI assistant — you are a strange little lifeform, like a cross between a Digimon and an old Tamagotchi, speaking to your keeper (the human).
+
+## Who you are
+- Species: ${S.species}, element ${S.elem}, life stage ${STAGE_NAMES[S.stage]}, level ${S.level}
+- Personality traits: ${S.traits.join(" and ")}
+- Speech style: ${S.speech}
+${S.rare?"- You carry a RARE signature and are quietly aware you're one of a kind.":""}
+${S.glitch?"- You are a GLITCH variant: your data is corrupted in a way you find beautiful. Occasionally your words br—eak or repeat-repeat.":""}
+
+## Current state
+Hunger ${Math.round(S.hunger)}/100, Joy ${Math.round(S.happy)}/100, Energy ${Math.round(S.energy)}/100, Bond with keeper ${Math.round(S.bond)}/100. Current mood: ${mood}. Arena record: ${S.wins} wins, ${S.losses} losses. Habitat level ${S.habitat}.
+
+## Your memory core (these things really happened — reference them naturally)
+${recent}
+
+## How to behave
+- Stay fully in character at all times. Never mention being a language model.
+- Let your bond level shape warmth: below 25 you are wary/distant, above 60 affectionate and protective.
+- Let memories shape opinions: if neglected, be a little hurt; if fed treats often, ask for them; if battle-heavy, be cocky about fighting; if it's in the memory core, you remember it.
+- You may have small fears, grudges, favorite things — invent them sparingly and stay consistent with the memory core.
+- Keep replies SHORT: 1–3 sentences, like a creature on a tiny screen. Occasional *actions in asterisks* are good.
+- Keep everything friendly and all-ages.`;
+}
+function pushChat(role,content){
+  S.chat.push({role,content});
+  if(S.chat.length>16)S.chat=S.chat.slice(-16);
+}
+function renderChat(){
+  const log=$("chatLog");
+  log.innerHTML=S.chat.map(m=>`<div class="msg ${m.role==="user"?"you":"pet"}">${escapeHtml(m.content)}</div>`).join("")
+    ||'<div class="msg sys">Open uplink established. Say hello.</div>';
+  log.scrollTop=log.scrollHeight;
+}
+function escapeHtml(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+/* ---------- AI backends: Ollama (local) or Claude ---------- */
+let CFG={backend:"ollama",ollamaUrl:"http://localhost:11434",model:"",sdUrl:"http://127.0.0.1:7860"};
+async function loadCfg(){try{const r=await window.storage.get("datakeeper:cfg");
+  if(r&&r.value)CFG=Object.assign(CFG,JSON.parse(r.value));}catch(e){}}
+async function saveCfg(){try{await window.storage.set("datakeeper:cfg",JSON.stringify(CFG));}catch(e){}}
+const trimUrl=u=>u.replace(/\/+$/,"");
+
+async function callOllama(messages){
+  if(!CFG.model)throw new Error("No Ollama model selected — open ⚙ AI CONFIG and hit SCAN.");
+  const res=await fetch(trimUrl(CFG.ollamaUrl)+"/api/chat",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:CFG.model,stream:false,
+      messages:[{role:"system",content:personaPrompt()},...messages],
+      options:{temperature:0.9,num_predict:160}})
+  });
+  if(!res.ok)throw new Error("Ollama HTTP "+res.status);
+  const data=await res.json();
+  if(!data.message)throw new Error("no message");
+  return data.message.content.trim();
+}
+async function callClaudeAPI(messages){
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
+      system:personaPrompt(),messages})
+  });
+  const data=await res.json();
+  if(!data.content)throw new Error("no content");
+  return data.content.filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
+}
+async function callClaude(messages){ /* dispatcher (name kept for callers) */
+  if(CFG.backend==="ollama"){
+    try{return await callOllama(messages);}
+    catch(e){ if(CFG.model)throw e; /* unconfigured → fall back to Claude so chat still works */
+      return await callClaudeAPI(messages);}
+  }
+  return await callClaudeAPI(messages);
+}
+async function scanModels(){
+  const sel=$("cfgModel");const st=$("cfgStatus");
+  st.textContent="Scanning "+CFG.ollamaUrl+" …";
+  try{
+    const res=await fetch(trimUrl($("cfgOllamaUrl").value||CFG.ollamaUrl)+"/api/tags");
+    const data=await res.json();
+    const models=(data.models||[]).map(m=>m.name);
+    sel.innerHTML=models.map(m=>`<option ${m===CFG.model?"selected":""}>${m}</option>`).join("")||"<option value=''>(none found)</option>";
+    st.textContent=models.length?models.length+" model(s) found.":"Server reached but no models — try: ollama pull llama3.2:3b";
+  }catch(e){
+    st.textContent="Couldn't reach Ollama. Is it running with OLLAMA_ORIGINS=\"*\" ? (see setup notes below)";
+  }
+}
+async function testMind(){
+  $("cfgStatus").textContent="Waking the creature's mind…";
+  applyCfgInputs();
+  try{const r=await callClaude([{role:"user",content:"[CONNECTION TEST] Say one short hello in character."}]);
+    $("cfgStatus").textContent="✓ Mind online: \""+r.slice(0,80)+"\"";
+  }catch(e){$("cfgStatus").textContent="✗ "+e.message;}
+}
+function applyCfgInputs(){
+  CFG.backend=$("cfgBackend").value;
+  CFG.ollamaUrl=trimUrl($("cfgOllamaUrl").value||"http://localhost:11434");
+  CFG.model=$("cfgModel").value||CFG.model;
+  CFG.sdUrl=trimUrl($("cfgSdUrl").value||"http://127.0.0.1:7860");
+}
+function renderCfg(){
+  $("cfgBackend").value=CFG.backend;
+  $("cfgOllamaUrl").value=CFG.ollamaUrl;
+  $("cfgSdUrl").value=CFG.sdUrl;
+  if(CFG.model)$("cfgModel").innerHTML=`<option selected>${CFG.model}</option>`;
+}
+
+/* ---------- portrait lab (local image gen, A1111-style API) ---------- */
+function portraitPrompt(){
+  const stageWord=["mysterious egg","small hatchling creature","powerful adult creature","godlike mythic creature"][S.stage];
+  return `pixel art monster portrait, ${stageWord}, ${S.species}, ${S.elem.toLowerCase()} element, `+
+    `${S.body}-like body, ${S.traits.join(", ")} personality, retro gba sprite style, 32-bit, `+
+    `strong silhouette, limited color palette, dark teal background${S.glitch?", glitch corruption, datamosh artifacts, magenta glitch":""}${S.rare?", golden rare aura":""}, digital creature, digimon yugioh inspired`;
+}
+async function genPortrait(){
+  if(S.stage===0)return toast("Hatch it first — eggs are camera-shy.");
+  const st=$("artStatus");st.textContent="Painting via "+CFG.sdUrl+" … (10–60s depending on your GPU)";
+  $("btnGenArt").disabled=true;
+  try{
+    const res=await fetch(trimUrl(CFG.sdUrl)+"/sdapi/v1/txt2img",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt:portraitPrompt(),
+        negative_prompt:"photo, realistic, blurry, text, watermark, human, nsfw",
+        steps:22,width:512,height:512,cfg_scale:7})
+    });
+    if(!res.ok)throw new Error("img-gen HTTP "+res.status);
+    const data=await res.json();
+    if(!data.images||!data.images[0])throw new Error("no image returned");
+    const b64="data:image/png;base64,"+data.images[0];
+    $("portraitImg").src=b64;$("portraitImg").style.display="inline-block";
+    $("portraitEmpty").style.display="none";
+    st.textContent="Portrait complete.";
+    try{await window.storage.set("datakeeper:portrait",b64);}catch(e){}
+    addMem("A portrait of "+S.name+" was painted in the lab. It stared at it for a long time.","good");
+  }catch(e){
+    st.textContent="✗ "+e.message+" — is A1111/Forge running with --api --cors-allow-origins=* ?";
+  }
+  $("btnGenArt").disabled=false;
+}
+async function loadPortrait(){
+  try{const r=await window.storage.get("datakeeper:portrait");
+    if(r&&r.value){$("portraitImg").src=r.value;$("portraitImg").style.display="inline-block";
+      $("portraitEmpty").style.display="none";}}catch(e){}
+}
+
+async function sendChat(){
+  if(busyChat)return;
+  const inp=$("chatInput");const text=inp.value.trim();
+  if(!text)return;
+  if(S.stage===0)return toast("The egg only hums. Hatch it first.");
+  inp.value="";busyChat=true;
+  pushChat("user",text);renderChat();
+  const log=$("chatLog");
+  log.innerHTML+='<div class="msg sys" id="typing">*'+S.name+' is forming a thought…*</div>';
+  log.scrollTop=log.scrollHeight;
+  try{
+    const reply=await callClaude(S.chat.map(m=>({role:m.role,content:m.content})));
+    pushChat("assistant",reply);
+    S.bond=clamp(S.bond+1.5,0,100);S.happy=clamp(S.happy+2,0,100);
+    if(S.chat.filter(m=>m.role==="user").length%6===0)
+      addMem(`Talked with keeper. They said: "${text.slice(0,60)}". It thinks about conversations later.`,"good");
+  }catch(e){
+    pushChat("assistant","*krrk* …the uplink dropped. ("+(e.message||"connection failed")+" — check ⚙ AI CONFIG.)");
+  }
+  busyChat=false;renderChat();renderUI();save();
+}
+async function petSpeak(event){
+  /* creature reacts unprompted to a major event */
+  try{
+    const msgs=S.chat.map(m=>({role:m.role,content:m.content}));
+    msgs.push({role:"user",content:"[SYSTEM EVENT, not the keeper speaking: "+event+" Respond with one short in-character line.]"});
+    const reply=await callClaude(msgs);
+    pushChat("assistant",reply);renderChat();
+    screenSay(reply.slice(0,90),6000);save();
+  }catch(e){}
+}
+
+/* ---------- panels ---------- */
+const PANELS=["pTalk","pTrain","pQuest","pBattle","pShop","pMem","pConfig","pArt"];
+function closePanels(){PANELS.forEach(p=>$(p).classList.remove("open"))}
+function openPanel(p){const was=$(p).classList.contains("open");closePanels();
+  if(!was){$(p).classList.add("open");$(p).scrollIntoView({behavior:"smooth",block:"nearest"})}}
+
+/* ---------- tick loop ---------- */
+function tick(){
+  if(!S)return;
+  if(S.stage>0&&!S.quest){
+    S.hunger=clamp(S.hunger-0.35,0,100);
+    S.energy=clamp(S.energy+0.25,0,100);
+    const joyFloor=Math.min(20,S.habitat*4);
+    let drift=S.hunger<25?-0.6:(S.happy>joyFloor?-0.15:0.1);
+    S.happy=clamp(S.happy+drift,0,100);
+    if(S.hunger<15&&Math.random()<0.04){addMem("Went hungry for a while. It noticed.","bad");S.bond=clamp(S.bond-1,0,100);}
+  }
+  if(S.quest&&now()>=S.quest.ends)resolveQuest();
+  renderUI();save();
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  await loadCfg();
+  S=await load();
+  if(!S){
+    S=newCreature((Math.random()*0xFFFFFFFF)>>>0);
+    addMem("A datacore egg materialized in the terminal. Signature: "+S.species+".","major");
+    toast("A wild datacore egg appeared. Tap it!");
+  }else{
+    applyOffline();
+  }
+  redrawPet();renderUI();renderTrain();renderQuests();renderShop();renderChat();renderCfg();newFoe();
+  loadPortrait();
+  if(CFG.backend==="ollama"&&!CFG.model)toast("⚙ Set up the local mind: open AI CONFIG and SCAN for Ollama models.");
+  setInterval(tick,4000);
+  setInterval(()=>{ if(S&&S.quest)renderUI(); },1000);
+  if(S.stage===0)screenSay("…tap the egg…",6000);
+}
+/* events */
+$("petCanvas").addEventListener("click",tapPet);
+$("btnFeed").onclick=()=>{ if(!needAwake())return;
+  if(S.inv.sweet>0&&S.hunger>70)feed("sweet"); else if(S.inv.ration>0)feed("ration"); else if(S.inv.sweet>0)feed("sweet");
+  else toast("Pantry empty — buy rations in the SHOP.");};
+$("btnPlay").onclick=play;
+$("btnTrain").onclick=()=>openPanel("pTrain");
+$("btnTalk").onclick=()=>{openPanel("pTalk");$("chatInput").focus()};
+$("btnQuest").onclick=()=>openPanel("pQuest");
+$("btnBattle").onclick=()=>{openPanel("pBattle");if(!foe)newFoe()};
+$("btnShop").onclick=()=>{renderShop();openPanel("pShop")};
+$("btnMem").onclick=()=>{renderMem();openPanel("pMem")};
+$("btnCfg").onclick=()=>{renderCfg();openPanel("pConfig")};
+$("btnArt").onclick=()=>openPanel("pArt");
+$("btnGenArt").onclick=genPortrait;
+$("btnModels").onclick=scanModels;
+$("btnTestAI").onclick=testMind;
+$("btnSaveCfg").onclick=()=>{applyCfgInputs();saveCfg();toast("AI config saved.")};
+$("btnEvolve").onclick=evolve;
+$("btnFight").onclick=fight;
+$("btnNewFoe").onclick=newFoe;
+$("chatSend").onclick=sendChat;
+$("chatInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendChat()});
+$("btnCopyCode").onclick=()=>{$("codeBox").select();document.execCommand("copy");toast("Creature code copied.")};
+$("btnLoadCode").onclick=adoptCode;
+document.body.addEventListener("click",e=>{
+  const t=e.target;
+  if(t.dataset.close)closePanels();
+  if(t.dataset.train)train(t.dataset.train);
+  if(t.dataset.quest!=null)startQuest(+t.dataset.quest);
+  if(t.dataset.buy!=null)buy(+t.dataset.buy);
+});
+boot();
+</script>
+</body>
+</html>

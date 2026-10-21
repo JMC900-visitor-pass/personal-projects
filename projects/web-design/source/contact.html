@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact | Dan's Web Starter</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">Dan's Web Starter</a>
+    <nav aria-label="Main navigation">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a aria-current="page" href="contact.html">Contact</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <p class="eyebrow">Page 3 · Forms and events</p>
+      <h1>Try a form</h1>
+      <p>The HTML below creates the fields. The CSS styles them. The JavaScript reads the name when you press the button and displays a greeting.</p>
+      <form id="hello-form">
+        <label for="visitor-name">Your name</label>
+        <input id="visitor-name" name="visitor-name" type="text" required autocomplete="name">
+        <button type="submit">Show greeting</button>
+      </form>
+      <p id="form-result" role="status" aria-live="polite"></p>
+      <p class="note"><strong>Demo only:</strong> This form does not send or save anything. A real contact form needs a service or server behind it.</p>
+      <h2>Trace it yourself</h2>
+      <p>Find <code>id="hello-form"</code> above, then find the same ID in <code>script.js</code>. Look for <code>addEventListener('submit', ...)</code> to see what happens when the form is submitted.</p>
+    </section>
+  </main>
+  <footer>Every page links to the same CSS and JavaScript files.</footer>
+</body>
+</html>

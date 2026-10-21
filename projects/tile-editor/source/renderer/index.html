@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:;">
+  <title>Tile Map Editor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ TOOLBAR ============ -->
+  <div id="toolbar">
+    <!-- Buttons injected by editor.js -->
+  </div>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <div id="main">
+
+    <!-- ========== LEFT PANEL ========== -->
+    <div id="leftPanel">
+
+      <!-- Tileset Panel -->
+      <div id="tilesetSection" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--border)">
+        <div id="tilesetPanel" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">
+          <!-- Injected by TilesetPanel.js -->
+        </div>
+      </div>
+
+      <!-- Layer Panel -->
+      <div id="layerSection" style="height:210px;min-height:80px;display:flex;flex-direction:column;overflow:hidden;resize:vertical;">
+        <div id="layerPanel" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">
+          <!-- Injected by LayerPanel.js -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Left resize handle -->
+    <div id="leftResize" title="Drag to resize"></div>
+
+    <!-- ========== CANVAS ========== -->
+    <div id="canvasContainer">
+      <canvas id="mapCanvas" tabindex="0"></canvas>
+    </div>
+
+    <!-- Right resize handle -->
+    <div id="rightResize" title="Drag to resize"></div>
+
+    <!-- ========== RIGHT PANEL ========== -->
+    <div id="rightPanel">
+
+      <!-- Inspector Panel -->
+      <div id="inspectorSection" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--border)">
+        <div id="inspectorPanel" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">
+          <!-- Injected by InspectorPanel.js -->
+        </div>
+      </div>
+
+      <!-- Object Panel -->
+      <div id="objectSection" style="height:240px;min-height:100px;display:flex;flex-direction:column;overflow:hidden;resize:vertical;">
+        <div id="objectPanel" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">
+          <!-- Injected by editor.js -->
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /#main -->
+
+  <!-- ============ STATUS BAR ============ -->
+  <div id="statusBar">
+    <span id="statusTile">Tile: (0, 0)</span>
+    <span id="statusTool">Tool: brush</span>
+    <span id="statusLayer">Layer: Ground</span>
+    <span>Zoom: <span id="statusZoom">200%</span></span>
+    <span id="statusMsg" style="margin-left:auto;opacity:0.7"></span>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ============ SCRIPTS ============ -->
+<!-- Load in dependency order (globals on window) -->
+
+<!-- Core data model -->
+<script src="../core/TileLayer.js"></script>
+<script src="../core/CollisionLayer.js"></script>
+<script src="../core/ObjectLayer.js"></script>
+<script src="../core/TileMap.js"></script>
+
+<!-- Renderer -->
+<script src="Camera.js"></script>
+<script src="MapRenderer.js"></script>
+
+<!-- Tools -->
+<script src="../tools/BrushTool.js"></script>
+<script src="../tools/EraserTool.js"></script>
+<script src="../tools/FillTool.js"></script>
+<script src="../tools/EyedropperTool.js"></script>
+<script src="../tools/ObjectTool.js"></script>
+<script src="../tools/CollisionTool.js"></script>
+
+<!-- UI Panels -->
+<script src="../ui/TilesetPanel.js"></script>
+<script src="../ui/LayerPanel.js"></script>
+<script src="../ui/InspectorPanel.js"></script>
+
+<!-- Export -->
+<script src="../export/MapExporter.js"></script>
+
+<!-- Main controller (last) -->
+<script src="editor.js"></script>
+
+<!-- Panel resize handles (inline, small) -->
+<script>
+(function() {
+  // Left panel resize
+  const leftHandle = document.getElementById('leftResize');
+  const leftPanel  = document.getElementById('leftPanel');
+  let dragging = null;
+
+  function startDrag(e, panel, side) {
+    e.preventDefault();
+    dragging = { panel, side, startX: e.clientX, startW: panel.getBoundingClientRect().width };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  leftHandle.addEventListener('mousedown', (e) => startDrag(e, leftPanel, 'left'));
+
+  const rightHandle = document.getElementById('rightResize');
+  const rightPanel  = document.getElementById('rightPanel');
+  rightHandle.addEventListener('mousedown', (e) => startDrag(e, rightPanel, 'right'));
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const delta = e.clientX - dragging.startX;
+    let newW;
+    if (dragging.side === 'left') {
+      newW = dragging.startW + delta;
+    } else {
+      newW = dragging.startW - delta;
+    }
+    newW = Math.max(160, Math.min(600, newW));
+    dragging.panel.style.width = newW + 'px';
+    // Trigger canvas resize
+    if (window._editor) window._editor._resizeCanvas();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+</script>
+
+</body>
+</html>

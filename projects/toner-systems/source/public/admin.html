@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toner Admin</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- ===== Login ===== -->
+<div id="loginScreen" class="wrap" hidden>
+  <section class="card">
+    <div class="cmyk-rule" aria-hidden="true"></div>
+    <h1>Admin login</h1>
+    <p class="sub">Toner Request System</p>
+    <label class="field-label" for="loginUser">Username</label>
+    <input id="loginUser" type="text" autocomplete="username">
+    <label class="field-label" for="loginPass">Password</label>
+    <input id="loginPass" type="password" autocomplete="current-password">
+    <button id="loginBtn" class="btn-primary">Sign in</button>
+    <p id="loginError" class="error" role="alert" hidden></p>
+  </section>
+</div>
+
+<!-- ===== App ===== -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="brand">
+      <span class="cmyk" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="brand-name">Toner Admin</span>
+    </div>
+    <div class="topbar-right">
+      <span class="user-chip">Admin: <strong id="adminName"></strong></span>
+      <button id="logoutBtn" class="link-btn">Log out</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="tickets">Tickets</button>
+    <button class="tab" data-tab="rooms">Rooms</button>
+    <button class="tab" data-tab="printers">Printers</button>
+    <button class="tab" data-tab="toners">Toners</button>
+    <button class="tab" data-tab="reports">Reports</button>
+  </nav>
+
+  <main class="admin-wrap">
+
+    <!-- Dashboard -->
+    <section id="tab-dashboard" class="tab-panel">
+      <div class="stat-grid">
+        <div class="stat"><span class="stat-num" id="statPending">–</span><span class="stat-label">Pending</span></div>
+        <div class="stat"><span class="stat-num" id="statProgress">–</span><span class="stat-label">In progress</span></div>
+        <div class="stat"><span class="stat-num" id="statCompleted">–</span><span class="stat-label">Completed</span></div>
+        <div class="stat warn"><span class="stat-num" id="statLow">–</span><span class="stat-label">Low stock</span></div>
+      </div>
+      <h2>Low stock toner</h2>
+      <div class="table-scroll"><table id="lowStockTable">
+        <thead><tr><th>Toner</th><th>Model</th><th>In stock</th><th>Threshold</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- Tickets -->
+    <section id="tab-tickets" class="tab-panel" hidden>
+      <div class="toolbar">
+        <select id="filterStatus">
+          <option value="">All statuses</option>
+          <option>Pending</option><option>In Progress</option><option>Completed</option>
+        </select>
+        <select id="filterRoom"><option value="">All rooms</option></select>
+        <select id="filterPrinter"><option value="">All printers</option></select>
+      </div>
+      <div class="table-scroll"><table id="ticketsTable">
+        <thead><tr><th>#</th><th>User</th><th>Room</th><th>Printer</th><th>Toner</th><th>Status</th><th>Created</th><th>Notes</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- Rooms -->
+    <section id="tab-rooms" class="tab-panel" hidden>
+      <div class="toolbar"><button class="btn-small" id="addRoomBtn">+ Add room</button></div>
+      <div class="table-scroll"><table id="roomsTable">
+        <thead><tr><th>Room</th><th>Building</th><th>Notes</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- Printers -->
+    <section id="tab-printers" class="tab-panel" hidden>
+      <div class="toolbar"><button class="btn-small" id="addPrinterBtn">+ Add printer</button></div>
+      <div class="table-scroll"><table id="printersTable">
+        <thead><tr><th>Printer</th><th>Model</th><th>IP</th><th>Room</th><th>Toner</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- Toners -->
+    <section id="tab-toners" class="tab-panel" hidden>
+      <div class="toolbar"><button class="btn-small" id="addTonerBtn">+ Add toner</button></div>
+      <div class="table-scroll"><table id="tonersTable">
+        <thead><tr><th>Toner</th><th>Model</th><th>Stock</th><th>Cost</th><th>Low at</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+    <!-- Reports -->
+    <section id="tab-reports" class="tab-panel" hidden>
+      <div class="toolbar">
+        <a class="btn-small" href="/api/admin/reports/requests.csv" download>Export all requests (CSV)</a>
+      </div>
+      <h2>Monthly usage &amp; cost</h2>
+      <div class="table-scroll"><table id="monthlyTable">
+        <thead><tr><th>Month</th><th>Toners used</th><th>Total cost</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <h2>Most requested printers</h2>
+      <div class="table-scroll"><table id="topPrintersTable">
+        <thead><tr><th>Printer</th><th>Room</th><th>Requests</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== Modal ===== -->
+<div id="modal" class="modal-backdrop" hidden>
+  <div class="card modal-card" role="dialog" aria-modal="true">
+    <div class="cmyk-rule" aria-hidden="true"></div>
+    <h1 id="modalTitle"></h1>
+    <div id="modalFields"></div>
+    <div class="modal-actions">
+      <button id="modalCancel" class="btn-secondary">Cancel</button>
+      <button id="modalSave" class="btn-primary">Save</button>
+    </div>
+    <p id="modalError" class="error" role="alert" hidden></p>
+  </div>
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>
